@@ -1,11 +1,15 @@
-import { createParser } from "eventsource-parser";
 import { flushSync } from "react-dom";
 
 type Payload = {
-  type: "image_generation.partial_image" | "image_generation.completed";
-  b64_json: string;
+  type?: string;
+  b64_json?: string;
 };
 
+/**
+ * Robust SSE parser for the Lovable AI image-gen stream.
+ * Parses by JSON `type` field instead of relying on `event:` line, which
+ * some proxies strip. Handles CRLF, comments, multi-line data, [DONE].
+ */
 export async function streamImage(
   endpoint: string,
   body: unknown,
@@ -23,32 +27,60 @@ export async function streamImage(
     throw new Error(text || `Request failed: ${res.status}`);
   }
 
-  let sawCompleted = false;
-  const parser = createParser({
-    onEvent(event) {
-      if (
-        event.event !== "image_generation.partial_image" &&
-        event.event !== "image_generation.completed"
-      ) return;
-      let payload: Payload;
-      try { payload = JSON.parse(event.data) as Payload; } catch { return; }
-      const isFinal = event.event === "image_generation.completed";
-      flushSync(() => {
-        onFrame(`data:image/png;base64,${payload.b64_json}`, isFinal);
-      });
-      if (isFinal) sawCompleted = true;
-    },
-  });
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let sawFinal = false;
+  let lastFrame: { url: string; final: boolean } | null = null;
 
-  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      parser.feed(value);
+  const handleEventBlock = (block: string) => {
+    // collect data: lines
+    const dataLines: string[] = [];
+    for (let line of block.split("\n")) {
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (!line || line.startsWith(":")) continue;
+      if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).replace(/^ /, ""));
+      }
     }
-  } finally {
-    reader.cancel().catch(() => {});
+    if (dataLines.length === 0) return;
+    const data = dataLines.join("\n");
+    if (data === "[DONE]") return;
+
+    let payload: Payload;
+    try { payload = JSON.parse(data); } catch { return; }
+    if (!payload.b64_json) return;
+
+    const isFinal = payload.type === "image_generation.completed";
+    const url = `data:image/png;base64,${payload.b64_json}`;
+    lastFrame = { url, final: isFinal };
+    flushSync(() => onFrame(url, isFinal));
+    if (isFinal) sawFinal = true;
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let sepIdx: number;
+    // SSE events are separated by a blank line (\n\n, possibly \r\n\r\n)
+    while ((sepIdx = buffer.search(/\r?\n\r?\n/)) !== -1) {
+      const block = buffer.slice(0, sepIdx);
+      buffer = buffer.slice(sepIdx).replace(/^\r?\n\r?\n/, "");
+      handleEventBlock(block);
+    }
   }
-  if (!sawCompleted) throw new Error("Stream ended without a completed image");
+  if (buffer.trim()) handleEventBlock(buffer);
+
+  // If the upstream never sent an explicit completed marker but we did
+  // receive at least one image, treat the last frame as final so the UI
+  // unblurs and the user gets the result.
+  if (!sawFinal && lastFrame) {
+    flushSync(() => onFrame(lastFrame!.url, true));
+    return;
+  }
+  if (!sawFinal && !lastFrame) {
+    throw new Error("No image data received");
+  }
 }
