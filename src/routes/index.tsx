@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
-import { extractText } from "@/lib/extractText";
+import { extractText, type Segment } from "@/lib/extractText";
 import {
   downloadPdf,
   downloadPng,
@@ -13,11 +13,14 @@ import {
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
+type KeyPoint = { text: string; sources: number[] };
+type KeyTerm = { term: string; definition: string; sources: number[] };
 type Notes = {
   topic: string;
   summary: string;
-  keyPoints: string[];
-  keyTerms: { term: string; definition: string }[];
+  keyPoints: KeyPoint[];
+  keyTerms: KeyTerm[];
+  sourceLabel: string;
 };
 
 export const Route = createFileRoute("/")({
