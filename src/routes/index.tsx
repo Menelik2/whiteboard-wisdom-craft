@@ -183,6 +183,80 @@ function Index() {
           </p>
         </header>
 
+        <section className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card/50 p-4 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold">Summarize a document</h2>
+            <p className="text-xs text-muted-foreground">
+              Upload PDF, DOCX, PPTX, or TXT — get structured study notes and use them as the whiteboard topic.
+            </p>
+          </div>
+          <label
+            className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-input bg-background px-4 py-6 text-center text-sm transition hover:bg-accent ${
+              summarizing ? "opacity-60" : ""
+            }`}
+          >
+            <input
+              type="file"
+              accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
+              className="hidden"
+              disabled={summarizing}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                e.target.value = "";
+                handleFile(f);
+              }}
+            />
+            <span className="font-medium">
+              {summarizing ? "Reading & summarizing…" : docName ? `Replace: ${docName}` : "Choose a document"}
+            </span>
+            <span className="text-xs text-muted-foreground">PDF · DOCX · PPTX · TXT</span>
+          </label>
+
+          {notes && (
+            <article className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Topic</p>
+                <p className="text-base font-semibold">{notes.topic}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">{notes.summary}</p>
+              {notes.keyPoints?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide">Key points</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {notes.keyPoints.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {notes.keyTerms?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide">Key terms</p>
+                  <dl className="mt-1 space-y-1">
+                    {notes.keyTerms.map((t, i) => (
+                      <div key={i}>
+                        <dt className="inline font-medium">{t.term}: </dt>
+                        <dd className="inline text-muted-foreground">{t.definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setTopic(notes.topic);
+                  if (!loading) generate();
+                }}
+                disabled={loading}
+                className="self-start rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                Generate whiteboard from these notes
+              </button>
+            </article>
+          )}
+        </section>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
