@@ -234,14 +234,14 @@ function Index() {
           </div>
           <label
             className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-input bg-background px-4 py-6 text-center text-sm transition hover:bg-accent ${
-              summarizing ? "opacity-60" : ""
+              extracting || summarizing ? "opacity-60" : ""
             }`}
           >
             <input
               type="file"
               accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
               className="hidden"
-              disabled={summarizing}
+              disabled={extracting || summarizing}
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 e.target.value = "";
@@ -249,10 +249,83 @@ function Index() {
               }}
             />
             <span className="font-medium">
-              {summarizing ? "Reading & summarizing…" : docName ? `Replace: ${docName}` : "Choose a document"}
+              {extracting
+                ? "Extracting text…"
+                : docName
+                  ? `Replace: ${docName}`
+                  : "Choose a document"}
             </span>
             <span className="text-xs text-muted-foreground">PDF · DOCX · PPTX · TXT</span>
           </label>
+
+          {segments.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Extracted preview
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedIdx.size} of {segments.length} {segments[0].label.toLowerCase()}
+                    {segments.length === 1 ? "" : "s"} selected
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIdx(new Set(segments.map((s) => s.index)))}
+                    className="rounded border border-input bg-background px-2 py-1 text-[11px] hover:bg-accent"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIdx(new Set())}
+                    className="rounded border border-input bg-background px-2 py-1 text-[11px] hover:bg-accent"
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+              <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                {segments.map((s) => {
+                  const active = selectedIdx.has(s.index);
+                  return (
+                    <li key={s.index}>
+                      <label
+                        className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 transition ${
+                          active ? "border-foreground bg-accent/30" : "border-border bg-background hover:bg-accent/30"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => toggleSegment(s.index)}
+                          className="mt-1 accent-foreground"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium">
+                            {s.label} {s.index} · {s.title}
+                          </p>
+                          <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap text-[11px] text-muted-foreground">
+                            {s.text || <em>(no text)</em>}
+                          </p>
+                        </div>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button
+                type="button"
+                onClick={summarizeSelected}
+                disabled={summarizing || selectedIdx.size === 0}
+                className="self-start rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                {summarizing ? "Summarizing…" : `Summarize ${selectedIdx.size} selected`}
+              </button>
+            </div>
+          )}
 
           {notes && (
             <article className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
@@ -266,7 +339,14 @@ function Index() {
                   <p className="text-xs font-semibold uppercase tracking-wide">Key points</p>
                   <ul className="mt-1 list-disc space-y-1 pl-5">
                     {notes.keyPoints.map((p, i) => (
-                      <li key={i}>{p}</li>
+                      <li key={i}>
+                        {p.text}
+                        {p.sources?.length > 0 && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            [{notes.sourceLabel} {p.sources.join(", ")}]
+                          </span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -278,7 +358,14 @@ function Index() {
                     {notes.keyTerms.map((t, i) => (
                       <div key={i}>
                         <dt className="inline font-medium">{t.term}: </dt>
-                        <dd className="inline text-muted-foreground">{t.definition}</dd>
+                        <dd className="inline text-muted-foreground">
+                          {t.definition}
+                          {t.sources?.length > 0 && (
+                            <span className="ml-1 text-[10px]">
+                              [{notes.sourceLabel} {t.sources.join(", ")}]
+                            </span>
+                          )}
+                        </dd>
                       </div>
                     ))}
                   </dl>
@@ -298,6 +385,7 @@ function Index() {
             </article>
           )}
         </section>
+
 
         <form
           onSubmit={(e) => {
