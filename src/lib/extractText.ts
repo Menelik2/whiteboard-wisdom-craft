@@ -1,6 +1,7 @@
 // Client-side text extraction for PDF, DOCX, PPTX, and plain text files.
-import mammoth from "mammoth";
-import JSZip from "jszip";
+// All heavy parsers are dynamically imported inside functions to keep them
+// out of the SSR module graph (mammoth/jszip/pdfjs touch browser-only APIs).
+
 
 const MAX_CHARS = 80_000;
 
