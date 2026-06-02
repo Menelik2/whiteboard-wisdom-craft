@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiSummarizeRouteImport } from './routes/api/summarize'
 import { Route as ApiGenerateWhiteboardRouteImport } from './routes/api/generate-whiteboard'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSummarizeRoute = ApiSummarizeRouteImport.update({
+  id: '/api/summarize',
+  path: '/api/summarize',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateWhiteboardRoute = ApiGenerateWhiteboardRouteImport.update({
@@ -26,27 +32,31 @@ const ApiGenerateWhiteboardRoute = ApiGenerateWhiteboardRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/generate-whiteboard': typeof ApiGenerateWhiteboardRoute
+  '/api/summarize': typeof ApiSummarizeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/generate-whiteboard': typeof ApiGenerateWhiteboardRoute
+  '/api/summarize': typeof ApiSummarizeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/generate-whiteboard': typeof ApiGenerateWhiteboardRoute
+  '/api/summarize': typeof ApiSummarizeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/generate-whiteboard'
+  fullPaths: '/' | '/api/generate-whiteboard' | '/api/summarize'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/generate-whiteboard'
-  id: '__root__' | '/' | '/api/generate-whiteboard'
+  to: '/' | '/api/generate-whiteboard' | '/api/summarize'
+  id: '__root__' | '/' | '/api/generate-whiteboard' | '/api/summarize'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiGenerateWhiteboardRoute: typeof ApiGenerateWhiteboardRoute
+  ApiSummarizeRoute: typeof ApiSummarizeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/summarize': {
+      id: '/api/summarize'
+      path: '/api/summarize'
+      fullPath: '/api/summarize'
+      preLoaderRoute: typeof ApiSummarizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-whiteboard': {
@@ -71,17 +88,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiGenerateWhiteboardRoute: ApiGenerateWhiteboardRoute,
+  ApiSummarizeRoute: ApiSummarizeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

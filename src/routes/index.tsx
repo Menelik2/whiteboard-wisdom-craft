@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
+import { extractText } from "@/lib/extractText";
 import {
   downloadPdf,
   downloadPng,
@@ -11,6 +12,13 @@ import {
 } from "@/lib/whiteboard-utils";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+
+type Notes = {
+  topic: string;
+  summary: string;
+  keyPoints: string[];
+  keyTerms: { term: string; definition: string }[];
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -52,12 +60,40 @@ function Index() {
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [notes, setNotes] = useState<Notes | null>(null);
+  const [docName, setDocName] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastSettingsRef = useRef<Omit<HistoryItem, "id" | "dataUrl" | "createdAt"> | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
   }, []);
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    setSummarizing(true);
+    setNotes(null);
+    setDocName(file.name);
+    try {
+      const { text } = await extractText(file);
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, filename: file.name }),
+      });
+      if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
+      const data = (await res.json()) as Notes;
+      setNotes(data);
+      if (data.topic && !topic.trim()) setTopic(data.topic);
+      toast.success("Notes ready");
+    } catch (e) {
+      console.error(e);
+      toast.error((e as Error).message || "Could not summarize document");
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
   const toggleColor = (value: string) => {
     setColors((prev) =>
@@ -146,6 +182,80 @@ function Index() {
             Type any topic — get a detailed A4 whiteboard study-notes infographic.
           </p>
         </header>
+
+        <section className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card/50 p-4 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold">Summarize a document</h2>
+            <p className="text-xs text-muted-foreground">
+              Upload PDF, DOCX, PPTX, or TXT — get structured study notes and use them as the whiteboard topic.
+            </p>
+          </div>
+          <label
+            className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-input bg-background px-4 py-6 text-center text-sm transition hover:bg-accent ${
+              summarizing ? "opacity-60" : ""
+            }`}
+          >
+            <input
+              type="file"
+              accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
+              className="hidden"
+              disabled={summarizing}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                e.target.value = "";
+                handleFile(f);
+              }}
+            />
+            <span className="font-medium">
+              {summarizing ? "Reading & summarizing…" : docName ? `Replace: ${docName}` : "Choose a document"}
+            </span>
+            <span className="text-xs text-muted-foreground">PDF · DOCX · PPTX · TXT</span>
+          </label>
+
+          {notes && (
+            <article className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Topic</p>
+                <p className="text-base font-semibold">{notes.topic}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">{notes.summary}</p>
+              {notes.keyPoints?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide">Key points</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {notes.keyPoints.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {notes.keyTerms?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide">Key terms</p>
+                  <dl className="mt-1 space-y-1">
+                    {notes.keyTerms.map((t, i) => (
+                      <div key={i}>
+                        <dt className="inline font-medium">{t.term}: </dt>
+                        <dd className="inline text-muted-foreground">{t.definition}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setTopic(notes.topic);
+                  if (!loading) generate();
+                }}
+                disabled={loading}
+                className="self-start rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                Generate whiteboard from these notes
+              </button>
+            </article>
+          )}
+        </section>
 
         <form
           onSubmit={(e) => {
