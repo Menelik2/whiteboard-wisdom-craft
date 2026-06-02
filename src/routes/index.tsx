@@ -60,12 +60,40 @@ function Index() {
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [notes, setNotes] = useState<Notes | null>(null);
+  const [docName, setDocName] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastSettingsRef = useRef<Omit<HistoryItem, "id" | "dataUrl" | "createdAt"> | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
   }, []);
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    setSummarizing(true);
+    setNotes(null);
+    setDocName(file.name);
+    try {
+      const { text } = await extractText(file);
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, filename: file.name }),
+      });
+      if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
+      const data = (await res.json()) as Notes;
+      setNotes(data);
+      if (data.topic && !topic.trim()) setTopic(data.topic);
+      toast.success("Notes ready");
+    } catch (e) {
+      console.error(e);
+      toast.error((e as Error).message || "Could not summarize document");
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
   const toggleColor = (value: string) => {
     setColors((prev) =>
