@@ -44,10 +44,9 @@ async function extractDocx(file: File): Promise<string> {
   const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
   return value;
 }
-  return value;
-}
 
 async function extractPptx(file: File): Promise<string> {
+  const JSZip = (await import("jszip")).default;
   const buf = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buf);
   const slideFiles = Object.keys(zip.files)
