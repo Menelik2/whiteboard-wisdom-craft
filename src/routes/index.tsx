@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
+import { extractText } from "@/lib/extractText";
 import {
   downloadPdf,
   downloadPng,
@@ -11,6 +12,13 @@ import {
 } from "@/lib/whiteboard-utils";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+
+type Notes = {
+  topic: string;
+  summary: string;
+  keyPoints: string[];
+  keyTerms: { term: string; definition: string }[];
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
