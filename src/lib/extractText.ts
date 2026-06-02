@@ -1,11 +1,26 @@
 // Client-side text extraction for PDF, DOCX, PPTX, and plain text files.
-// All heavy parsers are dynamically imported inside functions to keep them
-// out of the SSR module graph (mammoth/jszip/pdfjs touch browser-only APIs).
-
+// Returns structured segments (slides/pages) so the UI can preview, let the
+// user pick which to include, and the summarizer can cite sources.
 
 const MAX_CHARS = 80_000;
 
 export type SupportedKind = "pdf" | "docx" | "pptx" | "text";
+
+export type Segment = {
+  /** 1-based index */
+  index: number;
+  /** "Slide" | "Page" | "Section" */
+  label: string;
+  /** Short topic/title guess (first line or first few words) */
+  title: string;
+  /** Full text */
+  text: string;
+};
+
+export type ExtractResult = {
+  kind: SupportedKind;
+  segments: Segment[];
+};
 
 export function detectKind(file: File): SupportedKind | null {
   const name = file.name.toLowerCase();
@@ -18,34 +33,67 @@ export function detectKind(file: File): SupportedKind | null {
   return null;
 }
 
-async function extractPdf(file: File): Promise<string> {
-  // Dynamic import keeps pdfjs out of the initial bundle.
+function makeTitle(text: string, fallback: string): string {
+  const first = text.split(/\r?\n/).map((s) => s.trim()).find(Boolean) ?? "";
+  const clean = first.replace(/\s+/g, " ").slice(0, 80);
+  return clean || fallback;
+}
+
+async function extractPdf(file: File): Promise<Segment[]> {
   const pdfjs: any = await import("pdfjs-dist/build/pdf.mjs");
   const workerUrl = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const buf = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buf }).promise;
-  const parts: string[] = [];
+  const segments: Segment[] = [];
   const pageCount = Math.min(pdf.numPages, 80);
+  let total = 0;
   for (let i = 1; i <= pageCount; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items.map((it: any) => it.str).join(" ");
-    parts.push(text);
-    if (parts.join("\n").length > MAX_CHARS) break;
+    const text = content.items.map((it: any) => it.str).join(" ").replace(/\s+/g, " ").trim();
+    segments.push({
+      index: i,
+      label: "Page",
+      title: makeTitle(text, `Page ${i}`),
+      text,
+    });
+    total += text.length;
+    if (total > MAX_CHARS) break;
   }
-  return parts.join("\n\n");
+  return segments;
 }
 
-async function extractDocx(file: File): Promise<string> {
+async function extractDocx(file: File): Promise<Segment[]> {
   const mammoth = (await import("mammoth")).default;
   const buf = await file.arrayBuffer();
   const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
-  return value;
+  // Split on blank lines into rough sections, capped.
+  const blocks = value
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  // Group into ~10 sections so previews stay manageable.
+  const groupSize = Math.max(1, Math.ceil(blocks.length / 10));
+  const segments: Segment[] = [];
+  for (let i = 0; i < blocks.length; i += groupSize) {
+    const chunk = blocks.slice(i, i + groupSize).join("\n\n");
+    const idx = segments.length + 1;
+    segments.push({
+      index: idx,
+      label: "Section",
+      title: makeTitle(chunk, `Section ${idx}`),
+      text: chunk,
+    });
+  }
+  if (segments.length === 0) {
+    segments.push({ index: 1, label: "Section", title: file.name, text: value });
+  }
+  return segments;
 }
 
-async function extractPptx(file: File): Promise<string> {
+async function extractPptx(file: File): Promise<Segment[]> {
   const JSZip = (await import("jszip")).default;
   const buf = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buf);
@@ -55,40 +103,43 @@ async function extractPptx(file: File): Promise<string> {
       const n = (s: string) => Number(s.match(/slide(\d+)/)?.[1] ?? 0);
       return n(a) - n(b);
     });
-  const parts: string[] = [];
-  for (const path of slideFiles) {
-    const xml = await zip.files[path].async("string");
-    // Extract <a:t>...</a:t> text runs.
+  const segments: Segment[] = [];
+  let total = 0;
+  for (let i = 0; i < slideFiles.length; i++) {
+    const xml = await zip.files[slideFiles[i]].async("string");
     const matches = xml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) ?? [];
-    const text = matches
-      .map((m) => m.replace(/<a:t[^>]*>|<\/a:t>/g, ""))
-      .join(" ");
-    parts.push(`Slide ${parts.length + 1}: ${text}`);
-    if (parts.join("\n").length > MAX_CHARS) break;
+    const runs = matches.map((m) => m.replace(/<a:t[^>]*>|<\/a:t>/g, "").trim()).filter(Boolean);
+    const text = runs.join("\n");
+    const idx = i + 1;
+    segments.push({
+      index: idx,
+      label: "Slide",
+      title: makeTitle(text, `Slide ${idx}`),
+      text,
+    });
+    total += text.length;
+    if (total > MAX_CHARS) break;
   }
-  return parts.join("\n\n");
+  return segments;
 }
 
-export async function extractText(file: File): Promise<{ kind: SupportedKind; text: string }> {
+async function extractTxt(file: File): Promise<Segment[]> {
+  const value = await file.text();
+  return [{ index: 1, label: "Section", title: file.name, text: value.slice(0, MAX_CHARS) }];
+}
+
+export async function extractText(file: File): Promise<ExtractResult> {
   const kind = detectKind(file);
   if (!kind) throw new Error("Unsupported file type. Use PDF, DOCX, PPTX, or TXT.");
 
-  let text: string;
+  let segments: Segment[];
   switch (kind) {
-    case "pdf":
-      text = await extractPdf(file);
-      break;
-    case "docx":
-      text = await extractDocx(file);
-      break;
-    case "pptx":
-      text = await extractPptx(file);
-      break;
-    case "text":
-      text = await file.text();
-      break;
+    case "pdf": segments = await extractPdf(file); break;
+    case "docx": segments = await extractDocx(file); break;
+    case "pptx": segments = await extractPptx(file); break;
+    case "text": segments = await extractTxt(file); break;
   }
-  text = text.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-  if (!text) throw new Error("Could not extract any text from this file.");
-  return { kind, text: text.slice(0, MAX_CHARS) };
+  segments = segments.filter((s) => s.text.trim().length > 0);
+  if (segments.length === 0) throw new Error("Could not extract any text from this file.");
+  return { kind, segments };
 }

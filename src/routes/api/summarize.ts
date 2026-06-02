@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-type Body = { text?: string; filename?: string };
+type Segment = { index: number; label: string; title: string; text: string };
+type Body = { segments?: Segment[]; filename?: string };
 
 export const Route = createFileRoute("/api/summarize")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { text, filename } = (await request.json()) as Body;
-        const clean = (text ?? "").trim();
-        if (!clean) {
-          return new Response(JSON.stringify({ error: "No text provided" }), {
+        const { segments, filename } = (await request.json()) as Body;
+        if (!segments || segments.length === 0) {
+          return new Response(JSON.stringify({ error: "No segments provided" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });
@@ -22,7 +22,20 @@ export const Route = createFileRoute("/api/summarize")({
           });
         }
 
-        const truncated = clean.slice(0, 60_000);
+        const label = segments[0].label;
+        // Build a labelled document with explicit citation markers.
+        let doc = "";
+        let total = 0;
+        const CAP = 60_000;
+        for (const s of segments) {
+          const block = `[${label} ${s.index}] ${s.title}\n${s.text}\n\n`;
+          if (total + block.length > CAP) {
+            doc += block.slice(0, CAP - total);
+            break;
+          }
+          doc += block;
+          total += block.length;
+        }
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -35,12 +48,11 @@ export const Route = createFileRoute("/api/summarize")({
             messages: [
               {
                 role: "system",
-                content:
-                  "You turn study documents into concise structured notes. Always reply by calling the provided function.",
+                content: `You turn study documents into concise structured notes. Each point and key term MUST cite which ${label.toLowerCase()}(s) it came from using the sources array (numbers only). Always reply by calling the provided function.`,
               },
               {
                 role: "user",
-                content: `Document${filename ? ` (${filename})` : ""}:\n\n${truncated}`,
+                content: `Document${filename ? ` (${filename})` : ""} — segments are marked like "[${label} N]":\n\n${doc}`,
               },
             ],
             tools: [
@@ -48,22 +60,28 @@ export const Route = createFileRoute("/api/summarize")({
                 type: "function",
                 function: {
                   name: "build_notes",
-                  description: "Return structured study notes for the document.",
+                  description: "Return structured study notes with source citations.",
                   parameters: {
                     type: "object",
                     properties: {
-                      topic: {
-                        type: "string",
-                        description: "A short 2-6 word topic suitable for a whiteboard title.",
-                      },
-                      summary: {
-                        type: "string",
-                        description: "A 2-3 sentence overview of the document.",
-                      },
+                      topic: { type: "string", description: "2-6 word topic for the whiteboard title." },
+                      summary: { type: "string", description: "2-3 sentence overview." },
                       keyPoints: {
                         type: "array",
-                        items: { type: "string" },
-                        description: "8-14 concise bullet points covering the most important ideas.",
+                        items: {
+                          type: "object",
+                          properties: {
+                            text: { type: "string" },
+                            sources: {
+                              type: "array",
+                              items: { type: "integer" },
+                              description: `${label} numbers this point came from.`,
+                            },
+                          },
+                          required: ["text", "sources"],
+                          additionalProperties: false,
+                        },
+                        description: "8-14 concise bullet points with citations.",
                       },
                       keyTerms: {
                         type: "array",
@@ -72,8 +90,9 @@ export const Route = createFileRoute("/api/summarize")({
                           properties: {
                             term: { type: "string" },
                             definition: { type: "string" },
+                            sources: { type: "array", items: { type: "integer" } },
                           },
-                          required: ["term", "definition"],
+                          required: ["term", "definition", "sources"],
                           additionalProperties: false,
                         },
                       },
@@ -97,15 +116,14 @@ export const Route = createFileRoute("/api/summarize")({
         }
 
         const data = (await upstream.json()) as any;
-        const call = data?.choices?.[0]?.message?.tool_calls?.[0];
-        const args = call?.function?.arguments;
+        const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         if (!args) {
           return new Response(JSON.stringify({ error: "No structured output" }), {
             status: 502,
             headers: { "Content-Type": "application/json" },
           });
         }
-        let parsed: unknown;
+        let parsed: any;
         try {
           parsed = JSON.parse(args);
         } catch {
@@ -114,7 +132,7 @@ export const Route = createFileRoute("/api/summarize")({
             headers: { "Content-Type": "application/json" },
           });
         }
-        return new Response(JSON.stringify(parsed), {
+        return new Response(JSON.stringify({ ...parsed, sourceLabel: label }), {
           headers: { "Content-Type": "application/json" },
         });
       },
