@@ -65,6 +65,9 @@ function Index() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [notes, setNotes] = useState<Notes | null>(null);
   const [docName, setDocName] = useState<string | null>(null);
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [selectedIdx, setSelectedIdx] = useState<Set<number>>(new Set());
+  const [extracting, setExtracting] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastSettingsRef = useRef<Omit<HistoryItem, "id" | "dataUrl" | "createdAt"> | null>(null);
@@ -73,17 +76,43 @@ function Index() {
     setHistory(loadHistory());
   }, []);
 
+  const selectedSegments = useMemo(
+    () => segments.filter((s) => selectedIdx.has(s.index)),
+    [segments, selectedIdx],
+  );
+
   const handleFile = async (file: File | null) => {
     if (!file) return;
-    setSummarizing(true);
+    setExtracting(true);
     setNotes(null);
+    setSegments([]);
+    setSelectedIdx(new Set());
     setDocName(file.name);
     try {
-      const { text } = await extractText(file);
+      const { segments: segs } = await extractText(file);
+      setSegments(segs);
+      setSelectedIdx(new Set(segs.map((s) => s.index)));
+      toast.success(`Extracted ${segs.length} ${segs[0]?.label.toLowerCase()}${segs.length === 1 ? "" : "s"} — review and summarize`);
+    } catch (e) {
+      console.error(e);
+      toast.error((e as Error).message || "Could not read document");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const summarizeSelected = async () => {
+    if (selectedSegments.length === 0) {
+      toast.error("Select at least one segment");
+      return;
+    }
+    setSummarizing(true);
+    setNotes(null);
+    try {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, filename: file.name }),
+        body: JSON.stringify({ segments: selectedSegments, filename: docName }),
       });
       if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
       const data = (await res.json()) as Notes;
@@ -97,6 +126,16 @@ function Index() {
       setSummarizing(false);
     }
   };
+
+  const toggleSegment = (idx: number) => {
+    setSelectedIdx((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
 
   const toggleColor = (value: string) => {
     setColors((prev) =>
