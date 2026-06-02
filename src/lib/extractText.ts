@@ -1,6 +1,7 @@
 // Client-side text extraction for PDF, DOCX, PPTX, and plain text files.
-import mammoth from "mammoth";
-import JSZip from "jszip";
+// All heavy parsers are dynamically imported inside functions to keep them
+// out of the SSR module graph (mammoth/jszip/pdfjs touch browser-only APIs).
+
 
 const MAX_CHARS = 80_000;
 
@@ -38,12 +39,14 @@ async function extractPdf(file: File): Promise<string> {
 }
 
 async function extractDocx(file: File): Promise<string> {
+  const mammoth = (await import("mammoth")).default;
   const buf = await file.arrayBuffer();
   const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
   return value;
 }
 
 async function extractPptx(file: File): Promise<string> {
+  const JSZip = (await import("jszip")).default;
   const buf = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buf);
   const slideFiles = Object.keys(zip.files)
