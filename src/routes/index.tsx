@@ -443,7 +443,7 @@ function Index() {
                     type="button"
                     onClick={() => {
                       setTopic(notes.topic);
-                      if (!loading) generate();
+                      if (!loading) generate(notes);
                     }}
                     disabled={loading}
                     className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
