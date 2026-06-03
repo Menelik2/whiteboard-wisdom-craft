@@ -168,10 +168,18 @@ function Index() {
       markerColors: colors,
     };
 
+    const notesPayload = overrideNotes ?? notes;
+
     try {
       await streamImage(
         "/api/generate-whiteboard",
-        { topic: t, markerColors: colors, numConcepts, difficulty },
+        {
+          topic: t,
+          markerColors: colors,
+          numConcepts,
+          difficulty,
+          ...(notesPayload ? { notes: notesPayload } : {}),
+        },
         (dataUrl, final) => {
           setSrc(dataUrl);
           if (final) {
