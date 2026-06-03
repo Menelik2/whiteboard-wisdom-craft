@@ -144,7 +144,7 @@ function Index() {
     );
   };
 
-  const generate = async () => {
+  const generate = async (overrideNotes?: Notes | null) => {
     const t = topic.trim();
     if (!t) {
       toast.error("Enter a topic first");
@@ -168,10 +168,18 @@ function Index() {
       markerColors: colors,
     };
 
+    const notesPayload = overrideNotes ?? notes;
+
     try {
       await streamImage(
         "/api/generate-whiteboard",
-        { topic: t, markerColors: colors, numConcepts, difficulty },
+        {
+          topic: t,
+          markerColors: colors,
+          numConcepts,
+          difficulty,
+          ...(notesPayload ? { notes: notesPayload } : {}),
+        },
         (dataUrl, final) => {
           setSrc(dataUrl);
           if (final) {
@@ -435,7 +443,7 @@ function Index() {
                     type="button"
                     onClick={() => {
                       setTopic(notes.topic);
-                      if (!loading) generate();
+                      if (!loading) generate(notes);
                     }}
                     disabled={loading}
                     className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"

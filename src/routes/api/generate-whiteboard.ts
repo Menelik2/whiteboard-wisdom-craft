@@ -1,10 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+type NoteBullet = { text?: string; sources?: number[] };
+type NoteTerm = { term?: string; definition?: string; sources?: number[] };
+type Notes = {
+  summary?: string;
+  keyPoints?: NoteBullet[];
+  keyTerms?: NoteTerm[];
+};
+
 type Body = {
   topic?: string;
   markerColors?: string[];
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
+  notes?: Notes;
 };
 
 const buildPrompt = ({
@@ -12,35 +21,70 @@ const buildPrompt = ({
   markerColors,
   numConcepts,
   difficulty,
+  notes,
 }: {
   topic: string;
   markerColors: string[];
   numConcepts: number;
   difficulty: string;
+  notes?: Notes;
 }) => {
   const colorList = markerColors.length ? markerColors.join(", ") : "black, blue, green, orange, red";
+
+  let contentBlock = "";
+  if (notes) {
+    const parts: string[] = [];
+    if (notes.summary) parts.push(`OVERVIEW:\n${notes.summary}`);
+    if (notes.keyTerms?.length) {
+      parts.push(
+        "KEY TERMS — write each term in a colored box with its full definition beneath it (verbatim, do NOT shorten):\n" +
+          notes.keyTerms
+            .filter((t) => t.term && t.definition)
+            .map((t, i) => `${i + 1}. ${t.term}: ${t.definition}`)
+            .join("\n"),
+      );
+    }
+    if (notes.keyPoints?.length) {
+      parts.push(
+        "KEY POINTS — write each as a numbered bullet with a 1–2 sentence explanation beneath:\n" +
+          notes.keyPoints
+            .filter((p) => p.text)
+            .map((p, i) => `${i + 1}. ${p.text}`)
+            .join("\n"),
+      );
+    }
+    contentBlock = `\n\nUSE THIS EXACT CONTENT — render every term, definition and point legibly on the board, do not invent or replace it:\n\n${parts.join("\n\n")}`;
+  }
+
   return `Create a highly detailed WHITEBOARD STUDY NOTES infographic about:
 
 "${topic}"
 
-DIFFICULTY LEVEL: ${difficulty} — pitch the explanations, vocabulary and depth at a ${difficulty.toLowerCase()} learner.
+DIFFICULTY LEVEL: ${difficulty} — pitch the explanations, vocabulary and depth at a ${difficulty.toLowerCase()} learner.${contentBlock}
 
 FORMAT & COMPOSITION
 - True A4 portrait layout (210 × 297 mm, 1:1.414)
 - Entire whiteboard fully visible from edge to edge, all four corners and complete aluminum frame shown
 - Small margin around the board so viewers clearly recognize it as a physical whiteboard
 - Whiteboard occupies ~85–95% of the image, never cropped
-- Straight-on front-facing camera angle
+- Straight-on front-facing camera angle, no perspective distortion
 - Professional classroom/study-room environment, softly blurred background
 
 CONTENT STRUCTURE
 - Large handwritten title centered at the top
 - EXACTLY ${numConcepts} major concepts / principles / formulas / key facts, clearly numbered or sectioned
+- Every concept MUST include a short DEFINITION and 1–2 lines of explanation/detail beneath it
+- For each technical term, draw a small highlighted DEFINITION box ("Def:") with the meaning written clearly
 - Organized into multiple sections with dividers and clear visual hierarchy
-- Short clear explanations beneath each point
-- Definitions, frameworks, formulas, step-by-step processes
-- Real-world examples, quick revision summaries, mnemonic devices
-- Key takeaways and margin notes
+- Include real-world examples, formulas, step-by-step processes and key takeaways
+
+TEXT LEGIBILITY (CRITICAL — DO NOT SKIP)
+- All handwriting MUST be large, neat, perfectly spelled and 100% readable
+- Use a minimum text height equivalent to ~18pt; never tiny or scribbled
+- High contrast between marker ink and white board — NO faded, blurry, wet, smudged, or half-erased text
+- No fake/lorem/gibberish words, no decorative unreadable scribbles, no overlapping text
+- Sharp focus across the ENTIRE board, edge to edge — every word in every section must be readable
+- Leave generous whitespace between lines and sections so nothing is cramped
 
 VISUAL LEARNING ELEMENTS
 - Hand-drawn arrows connecting related ideas
@@ -49,13 +93,11 @@ VISUAL LEARNING ELEMENTS
 
 WHITEBOARD STYLE
 - Realistic dry-erase marker handwriting, professional teacher-created presentation
-- Clean highly legible text
 - Use ONLY these marker colors: ${colorList}
-- Natural marker strokes, authentic whiteboard texture, realistic thickness variations
-- Slight dry-erase imperfections for authenticity
+- Natural marker strokes with crisp, fully-formed letters
 - Premium educational sketchnote appearance
 
-The finished image should look like a premium viral educational whiteboard by an expert teacher, with the entire physical whiteboard clearly visible.`;
+The finished image must look like a premium viral educational whiteboard by an expert teacher — every single word fully legible, with clear definitions and explanations for each concept.`;
 };
 
 export const Route = createFileRoute("/api/generate-whiteboard")({
@@ -95,9 +137,9 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           },
           body: JSON.stringify({
             model: "openai/gpt-image-2",
-            prompt: buildPrompt({ topic, markerColors, numConcepts, difficulty }),
+            prompt: buildPrompt({ topic, markerColors, numConcepts, difficulty, notes: body.notes }),
             size: "1024x1536",
-            quality: "low",
+            quality: "high",
             n: 1,
             stream: true,
             partial_images: 2,
