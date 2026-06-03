@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
 import { extractText, type Segment } from "@/lib/extractText";
 import {
+  downloadNotesPdf,
   downloadPdf,
   downloadPng,
   loadHistory,
