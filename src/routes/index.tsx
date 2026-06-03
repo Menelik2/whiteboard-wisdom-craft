@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
 import { extractText, type Segment } from "@/lib/extractText";
 import {
+  downloadNotesPdf,
   downloadPdf,
   downloadPng,
   loadHistory,
@@ -469,6 +470,21 @@ function Index() {
                     className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
                   >
                     Copy notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        downloadNotesPdf(notes);
+                        toast.success("PDF downloaded");
+                      } catch (e) {
+                        console.error(e);
+                        toast.error("PDF download failed");
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
+                  >
+                    Download PDF
                   </button>
                 </div>
               </div>
