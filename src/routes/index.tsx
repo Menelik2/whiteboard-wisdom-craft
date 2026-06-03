@@ -328,60 +328,150 @@ function Index() {
           )}
 
           {notes && (
-            <article className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Topic</p>
-                <p className="text-base font-semibold">{notes.topic}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">{notes.summary}</p>
-              {notes.keyPoints?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide">Key points</p>
-                  <ul className="mt-1 list-disc space-y-1 pl-5">
-                    {notes.keyPoints.map((p, i) => (
-                      <li key={i}>
-                        {p.text}
-                        {p.sources?.length > 0 && (
-                          <span className="ml-1 text-[10px] text-muted-foreground">
-                            [{notes.sourceLabel} {p.sources.join(", ")}]
+            <article className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-background to-accent/20 p-5 text-sm shadow-sm sm:p-6">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-accent/30 blur-3xl"
+              />
+
+              <div className="relative flex flex-col gap-5">
+                <header className="flex flex-col gap-2">
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    AI Summary
+                  </span>
+                  <h3 className="text-xl font-bold leading-tight tracking-tight sm:text-2xl">
+                    {notes.topic}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{notes.summary}</p>
+                  <div className="flex flex-wrap gap-3 pt-1 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-semibold text-foreground">{notes.keyPoints?.length ?? 0}</span>
+                      key points
+                    </span>
+                    <span className="opacity-40">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-semibold text-foreground">{notes.keyTerms?.length ?? 0}</span>
+                      key terms
+                    </span>
+                  </div>
+                </header>
+
+                {notes.keyPoints?.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Key points
+                    </h4>
+                    <ul className="flex flex-col gap-2">
+                      {notes.keyPoints.map((p, i) => (
+                        <li
+                          key={i}
+                          className="group flex gap-3 rounded-lg border border-border/60 bg-background/70 p-3 backdrop-blur transition hover:border-foreground/30 hover:bg-background"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                            {i + 1}
                           </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {notes.keyTerms?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide">Key terms</p>
-                  <dl className="mt-1 space-y-1">
-                    {notes.keyTerms.map((t, i) => (
-                      <div key={i}>
-                        <dt className="inline font-medium">{t.term}: </dt>
-                        <dd className="inline text-muted-foreground">
-                          {t.definition}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm leading-snug">{p.text}</p>
+                            {p.sources?.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {p.sources.map((n) => (
+                                  <span
+                                    key={n}
+                                    className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                  >
+                                    {notes.sourceLabel} {n}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {notes.keyTerms?.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Key terms
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {notes.keyTerms.map((t, i) => (
+                        <div
+                          key={i}
+                          className="rounded-lg border border-border/60 bg-background/70 p-3 backdrop-blur transition hover:border-foreground/30"
+                        >
+                          <p className="text-sm font-semibold">{t.term}</p>
+                          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                            {t.definition}
+                          </p>
                           {t.sources?.length > 0 && (
-                            <span className="ml-1 text-[10px]">
-                              [{notes.sourceLabel} {t.sources.join(", ")}]
-                            </span>
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {t.sources.map((n) => (
+                                <span
+                                  key={n}
+                                  className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                >
+                                  {notes.sourceLabel} {n}
+                                </span>
+                              ))}
+                            </div>
                           )}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTopic(notes.topic);
+                      if (!loading) generate();
+                    }}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    ✨ Generate whiteboard from these notes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lines = [
+                        `# ${notes.topic}`,
+                        "",
+                        notes.summary,
+                        "",
+                        "## Key Points",
+                        ...notes.keyPoints.map(
+                          (p) =>
+                            `- ${p.text}${p.sources?.length ? ` [${notes.sourceLabel} ${p.sources.join(", ")}]` : ""}`,
+                        ),
+                        "",
+                        "## Key Terms",
+                        ...notes.keyTerms.map(
+                          (t) =>
+                            `- **${t.term}**: ${t.definition}${t.sources?.length ? ` [${notes.sourceLabel} ${t.sources.join(", ")}]` : ""}`,
+                        ),
+                      ].join("\n");
+                      navigator.clipboard.writeText(lines).then(
+                        () => toast.success("Notes copied"),
+                        () => toast.error("Copy failed"),
+                      );
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
+                  >
+                    Copy notes
+                  </button>
                 </div>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setTopic(notes.topic);
-                  if (!loading) generate();
-                }}
-                disabled={loading}
-                className="self-start rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-              >
-                Generate whiteboard from these notes
-              </button>
+              </div>
             </article>
           )}
         </section>
