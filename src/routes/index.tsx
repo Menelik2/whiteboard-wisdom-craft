@@ -144,7 +144,7 @@ function Index() {
     );
   };
 
-  const generate = async () => {
+  const generate = async (overrideNotes?: Notes | null) => {
     const t = topic.trim();
     if (!t) {
       toast.error("Enter a topic first");
