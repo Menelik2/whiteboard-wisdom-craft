@@ -1,0 +1,56 @@
+{
+  "projectId": "",
+  "orgId": "",
+  "buildCommand": "bun run build",
+  "devCommand": "bun run dev",
+  "installCommand": "bun install",
+  "framework": "tanstack-start",
+  "outputDirectory": ".output",
+  "regions": ["sfo1"],
+  "env": {
+    "VITE_SUPABASE_URL": "@vite_supabase_url",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "@vite_supabase_publishable_key",
+    "VITE_SUPABASE_PROJECT_ID": "@vite_supabase_project_id",
+    "NODE_ENV": "production"
+  },
+  "envPrefix": "VITE_",
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ],
+  "crons": []
+}
