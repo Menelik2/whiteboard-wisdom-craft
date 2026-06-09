@@ -4,7 +4,7 @@ export default defineConfig({
   tanstackStart: {
     server: { 
       entry: "server",
-      preset: "vercel"  // Add this to override cloudflare default
+      preset: "vercel",
     },
   },
 });
