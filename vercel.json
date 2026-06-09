@@ -12,6 +12,12 @@
     "VITE_SUPABASE_PROJECT_ID": "@vite_supabase_project_id",
     "NODE_ENV": "production"
   },
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
   "git": {
     "deploymentEnabled": {
       "main": true
@@ -20,7 +26,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/.output/server"
+      "destination": "/vercel.cjs"
     },
     {
       "source": "/(.*)",
