@@ -234,16 +234,27 @@ function Index() {
           </p>
         </header>
 
-        <section className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card/50 p-4 sm:p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-semibold">Summarize a document</h2>
-            <p className="text-xs text-muted-foreground">
-              Upload PDF, DOCX, PPTX, or TXT — get structured study notes and use them as the whiteboard topic.
-            </p>
+        <section className="relative flex flex-col gap-5 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-background to-primary/5 p-5 shadow-sm sm:p-6">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary/10 blur-3xl"
+          />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                Document → Notes
+              </span>
+              <h2 className="text-lg font-bold tracking-tight sm:text-xl">Summarize a document</h2>
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Upload PDF, DOCX, PPTX, or TXT. Pick the slides or pages that matter, then turn them into clean study notes.
+              </p>
+            </div>
           </div>
+
           <label
-            className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-input bg-background px-4 py-6 text-center text-sm transition hover:bg-accent ${
-              extracting || summarizing ? "opacity-60" : ""
+            className={`group relative flex cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border-2 border-dashed border-border bg-background/60 px-4 py-8 text-center transition hover:border-primary/50 hover:bg-background ${
+              extracting || summarizing ? "pointer-events-none opacity-60" : ""
             }`}
           >
             <input
@@ -257,25 +268,41 @@ function Index() {
                 handleFile(f);
               }}
             />
-            <span className="font-medium">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl transition group-hover:scale-110">
+              {extracting ? (
+                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
+                <span>📄</span>
+              )}
+            </div>
+            <span className="text-sm font-semibold">
               {extracting
                 ? "Extracting text…"
                 : docName
                   ? `Replace: ${docName}`
-                  : "Choose a document"}
+                  : "Drop a file or click to browse"}
             </span>
-            <span className="text-xs text-muted-foreground">PDF · DOCX · PPTX · TXT</span>
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {["PDF", "DOCX", "PPTX", "PPT", "TXT"].map((ext) => (
+                <span
+                  key={ext}
+                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                >
+                  {ext}
+                </span>
+              ))}
+            </div>
           </label>
 
           {segments.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
+            <div className="relative flex flex-col gap-3 rounded-xl border border-border bg-background/80 p-4 shadow-sm backdrop-blur">
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Extracted preview
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {selectedIdx.size} of {segments.length} {segments[0].label.toLowerCase()}
+                    <span className="font-semibold text-foreground">{selectedIdx.size}</span> of {segments.length} {segments[0].label.toLowerCase()}
                     {segments.length === 1 ? "" : "s"} selected
                   </p>
                 </div>
@@ -283,14 +310,14 @@ function Index() {
                   <button
                     type="button"
                     onClick={() => setSelectedIdx(new Set(segments.map((s) => s.index)))}
-                    className="rounded border border-input bg-background px-2 py-1 text-[11px] hover:bg-accent"
+                    className="rounded-full border border-input bg-background px-2.5 py-1 text-[11px] font-medium transition hover:bg-accent"
                   >
                     All
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedIdx(new Set())}
-                    className="rounded border border-input bg-background px-2 py-1 text-[11px] hover:bg-accent"
+                    className="rounded-full border border-input bg-background px-2.5 py-1 text-[11px] font-medium transition hover:bg-accent"
                   >
                     None
                   </button>
@@ -302,21 +329,26 @@ function Index() {
                   return (
                     <li key={s.index}>
                       <label
-                        className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 transition ${
-                          active ? "border-foreground bg-accent/30" : "border-border bg-background hover:bg-accent/30"
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition ${
+                          active
+                            ? "border-primary/60 bg-primary/5 shadow-sm"
+                            : "border-border bg-background hover:border-foreground/30 hover:bg-accent/30"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={active}
                           onChange={() => toggleSegment(s.index)}
-                          className="mt-1 accent-foreground"
+                          className="mt-1 accent-primary"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium">
-                            {s.label} {s.index} · {s.title}
-                          </p>
-                          <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                              {s.label} {s.index}
+                            </span>
+                            <p className="truncate text-xs font-medium">{s.title}</p>
+                          </div>
+                          <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
                             {s.text || <em>(no text)</em>}
                           </p>
                         </div>
@@ -329,9 +361,16 @@ function Index() {
                 type="button"
                 onClick={summarizeSelected}
                 disabled={summarizing || selectedIdx.size === 0}
-                className="self-start rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-1.5 self-start rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
               >
-                {summarizing ? "Summarizing…" : `Summarize ${selectedIdx.size} selected`}
+                {summarizing ? (
+                  <>
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                    Summarizing…
+                  </>
+                ) : (
+                  <>✨ Summarize {selectedIdx.size} selected</>
+                )}
               </button>
             </div>
           )}
