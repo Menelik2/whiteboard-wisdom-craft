@@ -5,6 +5,17 @@ export default defineConfig({
     server: { 
       entry: "server",
       preset: "vercel",
+      middleware: [],
+    },
+  },
+  vite: {
+    ssr: {
+      external: ["@tanstack/react-start"],
+    },
+    build: {
+      commonjsOptions: {
+        transformMixedEsModules: true,
+      },
     },
   },
 });
