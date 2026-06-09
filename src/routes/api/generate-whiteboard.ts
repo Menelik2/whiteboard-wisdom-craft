@@ -78,11 +78,16 @@ CONTENT STRUCTURE
 - Organized into multiple sections with dividers and clear visual hierarchy
 - Include real-world examples, formulas, step-by-step processes and key takeaways
 
-TEXT LEGIBILITY (CRITICAL — DO NOT SKIP)
-- All handwriting MUST be large, neat, perfectly spelled and 100% readable
-- Use a minimum text height equivalent to ~18pt; never tiny or scribbled
+TEXT LEGIBILITY & AUTO-FIT (CRITICAL — DO NOT SKIP)
+- All handwriting MUST be neat, perfectly spelled and 100% readable
+- AUTOMATIC FONT SIZING: scale text size to the amount of content so NOTHING overflows or is cramped.
+  • Few concepts → larger handwriting (titles ~48pt, body ~24pt equivalent)
+  • Many concepts → smaller but still crisp handwriting (titles ~32pt, body ~16pt, NEVER below ~14pt equivalent)
+  • Every section's text fits inside its own box with comfortable padding on all four sides — never touching borders, never spilling out
+- AUTOMATIC LAYOUT REFLOW: dynamically arrange sections (2-col, 3-col, grid, or stacked) based on how many concepts there are, balancing the board and using all available space without overcrowding any region
+- Long definitions wrap onto multiple lines INSIDE their box with consistent line spacing; never truncate mid-word, never run off the edge
 - High contrast between marker ink and white board — NO faded, blurry, wet, smudged, or half-erased text
-- No fake/lorem/gibberish words, no decorative unreadable scribbles, no overlapping text
+- No fake/lorem/gibberish words, no decorative unreadable scribbles, no overlapping text, no text written on top of arrows or other text
 - Sharp focus across the ENTIRE board, edge to edge — every word in every section must be readable
 - Leave generous whitespace between lines and sections so nothing is cramped
 
