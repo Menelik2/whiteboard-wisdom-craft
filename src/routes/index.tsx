@@ -27,16 +27,16 @@ type Notes = {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Whiteboard Notes AI — Generate Study Infographics" },
+      { title: "DocBoard — Editorial AI Study Notes" },
       {
         name: "description",
         content:
-          "Type any topic and instantly generate a premium A4 whiteboard study-notes infographic.",
+          "Upload PDFs, DOCX, or slides. DocBoard distills them into editorial study notes and a beautiful whiteboard infographic.",
       },
-      { property: "og:title", content: "Whiteboard Notes AI" },
+      { property: "og:title", content: "DocBoard — Editorial AI Study Notes" },
       {
         property: "og:description",
-        content: "Type any topic, get a beautiful whiteboard study-notes image.",
+        content: "Editorial AI that turns documents into elegant whiteboard study notes.",
       },
     ],
   }),
@@ -44,15 +44,57 @@ export const Route = createFileRoute("/")({
 });
 
 const COLOR_PRESETS: { name: string; value: string; swatch: string }[] = [
-  { name: "Black", value: "black", swatch: "#111111" },
-  { name: "Blue", value: "blue", swatch: "#1d4ed8" },
-  { name: "Green", value: "green", swatch: "#16a34a" },
-  { name: "Orange", value: "orange", swatch: "#ea580c" },
-  { name: "Red", value: "red", swatch: "#dc2626" },
-  { name: "Purple", value: "purple", swatch: "#7e22ce" },
+  { name: "Ink", value: "black", swatch: "#1a1815" },
+  { name: "Indigo", value: "blue", swatch: "#1d4ed8" },
+  { name: "Emerald", value: "green", swatch: "#15803d" },
+  { name: "Ochre", value: "orange", swatch: "#c2410c" },
+  { name: "Crimson", value: "red", swatch: "#b91c1c" },
+  { name: "Plum", value: "purple", swatch: "#6b21a8" },
 ];
 
 type Difficulty = "Beginner" | "Intermediate" | "Advanced";
+
+// Tiny inline icons (no extra deps) ------------------------------------------
+const Icon = {
+  Upload: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M12 16V4m0 0l-4 4m4-4l4 4" />
+      <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+    </svg>
+  ),
+  Sparkle: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z" />
+    </svg>
+  ),
+  Download: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M12 4v12m0 0l-4-4m4 4l4-4" />
+      <path d="M4 20h16" />
+    </svg>
+  ),
+  Copy: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 012-2h10" />
+    </svg>
+  ),
+  Check: (p: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  ),
+};
+
+function SectionLabel({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className={`h-px w-6 ${accent ? "bg-accent" : "bg-foreground/30"}`} />
+      <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
 
 function Index() {
   const [topic, setTopic] = useState("");
@@ -70,6 +112,7 @@ function Index() {
   const [selectedIdx, setSelectedIdx] = useState<Set<number>>(new Set());
   const [extracting, setExtracting] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastSettingsRef = useRef<Omit<HistoryItem, "id" | "dataUrl" | "createdAt"> | null>(null);
 
@@ -104,7 +147,7 @@ function Index() {
 
   const summarizeSelected = async () => {
     if (selectedSegments.length === 0) {
-      toast.error("Select at least one segment");
+      toast.error("Select at least one passage");
       return;
     }
     setSummarizing(true);
@@ -136,7 +179,6 @@ function Index() {
       return next;
     });
   };
-
 
   const toggleColor = (value: string) => {
     setColors((prev) =>
@@ -221,250 +263,344 @@ function Index() {
     setHistory(loadHistory());
   };
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Toaster />
-      <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-10">
-        <header className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Whiteboard Notes AI
-          </h1>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            Type any topic — get a detailed A4 whiteboard study-notes infographic.
-          </p>
-        </header>
+  const copyNotes = () => {
+    if (!notes) return;
+    const lines = [
+      `# ${notes.topic}`,
+      "",
+      notes.summary,
+      "",
+      "## Key Points",
+      ...notes.keyPoints.map(
+        (p) =>
+          `- ${p.text}${p.sources?.length ? ` [${notes.sourceLabel} ${p.sources.join(", ")}]` : ""}`,
+      ),
+      "",
+      "## Key Terms",
+      ...notes.keyTerms.map(
+        (t) =>
+          `- **${t.term}**: ${t.definition}${t.sources?.length ? ` [${notes.sourceLabel} ${t.sources.join(", ")}]` : ""}`,
+      ),
+    ].join("\n");
+    navigator.clipboard.writeText(lines).then(
+      () => toast.success("Notes copied"),
+      () => toast.error("Copy failed"),
+    );
+  };
 
-        <section className="relative flex flex-col gap-5 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-background to-primary/5 p-5 shadow-sm sm:p-6">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary/10 blur-3xl"
-          />
-          <div className="relative flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                Document → Notes
-              </span>
-              <h2 className="text-lg font-bold tracking-tight sm:text-xl">Summarize a document</h2>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                Upload PDF, DOCX, PPTX, or TXT. Pick the slides or pages that matter, then turn them into clean study notes.
+  return (
+    <div className="min-h-screen bg-paper-grain text-foreground">
+      <Toaster />
+
+      {/* Top brand bar ----------------------------------------------------- */}
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/75 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-lg bg-foreground" />
+              <div className="absolute inset-[5px] rounded-[5px] bg-accent" />
+              <div className="absolute inset-[9px] rounded-sm bg-background" />
+            </div>
+            <div className="leading-none">
+              <p className="font-serif text-xl font-bold tracking-tight">DocBoard</p>
+              <p className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                Editorial study notes
               </p>
             </div>
           </div>
-
-          <label
-            className={`group relative flex cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border-2 border-dashed border-border bg-background/60 px-4 py-8 text-center transition hover:border-primary/50 hover:bg-background ${
-              extracting || summarizing ? "pointer-events-none opacity-60" : ""
-            }`}
+          <a
+            href="#workspace"
+            className="hidden rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground/80 hover:bg-secondary sm:inline-flex"
           >
-            <input
-              type="file"
-              accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
-              className="hidden"
-              disabled={extracting || summarizing}
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                e.target.value = "";
-                handleFile(f);
-              }}
-            />
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-2xl transition group-hover:scale-110">
-              {extracting ? (
-                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            New summary →
+          </a>
+        </div>
+      </header>
+
+      <main id="workspace" className="mx-auto flex max-w-5xl flex-col gap-12 px-5 py-10 sm:py-14">
+
+        {/* Hero ------------------------------------------------------------ */}
+        <section className="relative grid items-end gap-8 md:grid-cols-[1.4fr_1fr]">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              Documents → Notes → Whiteboard
+            </span>
+            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
+              Read less.
+              <br />
+              <span className="italic text-foreground/90">
+                Understand
+                <span className="relative ml-2 inline-block">
+                  <span className="relative z-10">more</span>
+                  <span className="absolute inset-x-0 bottom-1 -z-0 h-3 bg-accent/60" aria-hidden />
+                </span>
+                .
+              </span>
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
+              Upload a PDF, deck, or doc. DocBoard pulls the passages that matter and
+              composes them into editorial notes — and a hand-drawn whiteboard you can print.
+            </p>
+          </div>
+
+          {/* Mini whiteboard collage */}
+          <div className="relative hidden h-56 md:block">
+            <div className="absolute right-0 top-0 h-32 w-44 -rotate-3 bg-amber-note shadow-lg ring-1 ring-border p-3">
+              <p className="font-serif text-[11px] font-bold leading-snug">Decentralized Energy</p>
+              <div className="mt-2 h-0.5 w-8 bg-foreground/40" />
+              <p className="mt-2 text-[9px] leading-snug text-foreground/70">
+                Grid management must shift to peer-to-peer.
+              </p>
+            </div>
+            <div className="absolute bottom-0 left-2 h-28 w-40 rotate-2 bg-sage-note shadow-lg ring-1 ring-border p-3">
+              <p className="font-serif text-[11px] font-bold">Key insight</p>
+              <p className="mt-1 text-[9px] italic leading-snug text-foreground/70">
+                "Compress 40 pages into 12 cards you can teach back."
+              </p>
+            </div>
+            <div className="absolute right-8 bottom-4 h-10 w-44 rounded-full bg-card shadow-md ring-1 ring-border flex items-center justify-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Refining notes
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Upload + Selection ---------------------------------------------- */}
+        <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_30px_60px_-30px_rgba(0,0,0,0.15)]">
+          <div className="grid gap-0 md:grid-cols-[1.05fr_1fr]">
+
+            {/* Left: Upload */}
+            <div className="border-b border-border p-6 md:border-b-0 md:border-r md:p-8">
+              <SectionLabel accent>01 — Document source</SectionLabel>
+              <h2 className="font-serif text-2xl font-bold tracking-tight">
+                Drop a document
+              </h2>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                PDF, DOCX, PPTX, PPT, TXT — up to a few hundred pages.
+              </p>
+
+              <label
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files?.[0] ?? null;
+                  handleFile(f);
+                }}
+                className={`group relative mt-5 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-5 py-10 text-center transition ${
+                  dragOver
+                    ? "border-accent bg-accent/10"
+                    : "border-border bg-secondary/40 hover:border-accent/60 hover:bg-secondary"
+                } ${extracting || summarizing ? "pointer-events-none opacity-60" : ""}`}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
+                  className="hidden"
+                  disabled={extracting || summarizing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    e.target.value = "";
+                    handleFile(f);
+                  }}
+                />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-card shadow-sm ring-1 ring-border transition group-hover:scale-105">
+                  {extracting ? (
+                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+                  ) : (
+                    <Icon.Upload className="h-5 w-5 text-foreground" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-serif text-base font-bold">
+                    {extracting
+                      ? "Reading document…"
+                      : docName
+                        ? "Replace document"
+                        : "Drop file or click to browse"}
+                  </p>
+                  {docName && !extracting && (
+                    <p className="mt-1 truncate text-xs text-muted-foreground" title={docName}>
+                      {docName}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  {["PDF", "DOCX", "PPTX", "PPT", "TXT"].map((ext) => (
+                    <span
+                      key={ext}
+                      className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground ring-1 ring-border"
+                    >
+                      {ext}
+                    </span>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            {/* Right: Selection */}
+            <div className="p-6 md:p-8">
+              <div className="flex items-end justify-between gap-2">
+                <div>
+                  <SectionLabel>02 — Key passages</SectionLabel>
+                  <h2 className="font-serif text-2xl font-bold tracking-tight">
+                    Choose what to keep
+                  </h2>
+                </div>
+                {segments.length > 0 && (
+                  <span className="rounded-full bg-accent/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                    {selectedIdx.size} / {segments.length}
+                  </span>
+                )}
+              </div>
+
+              {segments.length === 0 ? (
+                <div className="mt-5 flex h-[260px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/30 text-center">
+                  <div className="font-serif text-base italic text-muted-foreground">
+                    Awaiting your document…
+                  </div>
+                  <p className="text-xs text-muted-foreground/80">
+                    Extracted pages or slides will appear here.
+                  </p>
+                </div>
               ) : (
-                <span>📄</span>
+                <>
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIdx(new Set(segments.map((s) => s.index)))}
+                      className="rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold ring-1 ring-border hover:bg-stone-soft"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIdx(new Set())}
+                      className="rounded-full bg-secondary px-3 py-1 text-[11px] font-semibold ring-1 ring-border hover:bg-stone-soft"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <ul className="mt-3 flex max-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
+                    {segments.map((s) => {
+                      const active = selectedIdx.has(s.index);
+                      return (
+                        <li key={s.index}>
+                          <label
+                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                              active
+                                ? "border-accent/70 bg-accent/10 shadow-sm"
+                                : "border-border bg-card hover:border-foreground/30"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() => toggleSegment(s.index)}
+                              className="sr-only"
+                            />
+                            <span
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md ring-1 transition ${
+                                active
+                                  ? "bg-foreground text-background ring-foreground"
+                                  : "bg-card ring-border"
+                              }`}
+                            >
+                              {active && <Icon.Check className="h-3 w-3" />}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-serif text-[11px] font-bold uppercase tracking-wider text-foreground/70">
+                                  {s.label} {s.index}
+                                </span>
+                                <span className="truncate text-xs font-medium">— {s.title}</span>
+                              </div>
+                              <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+                                {s.text || <em>(no text)</em>}
+                              </p>
+                            </div>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  <button
+                    type="button"
+                    onClick={summarizeSelected}
+                    disabled={summarizing || selectedIdx.size === 0}
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-3.5 text-sm font-semibold text-background shadow-lg shadow-foreground/15 transition hover:bg-foreground/90 disabled:opacity-50"
+                  >
+                    {summarizing ? (
+                      <>
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                        Composing notes…
+                      </>
+                    ) : (
+                      <>
+                        <Icon.Sparkle className="h-4 w-4" />
+                        Summarize {selectedIdx.size} passage{selectedIdx.size === 1 ? "" : "s"}
+                      </>
+                    )}
+                  </button>
+                </>
               )}
             </div>
-            <span className="text-sm font-semibold">
-              {extracting
-                ? "Extracting text…"
-                : docName
-                  ? `Replace: ${docName}`
-                  : "Drop a file or click to browse"}
-            </span>
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {["PDF", "DOCX", "PPTX", "PPT", "TXT"].map((ext) => (
-                <span
-                  key={ext}
-                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                >
-                  {ext}
-                </span>
-              ))}
-            </div>
-          </label>
+          </div>
+        </section>
 
-          {segments.length > 0 && (
-            <div className="relative flex flex-col gap-3 rounded-xl border border-border bg-background/80 p-4 shadow-sm backdrop-blur">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-col gap-0.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Extracted preview
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground">{selectedIdx.size}</span> of {segments.length} {segments[0].label.toLowerCase()}
-                    {segments.length === 1 ? "" : "s"} selected
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIdx(new Set(segments.map((s) => s.index)))}
-                    className="rounded-full border border-input bg-background px-2.5 py-1 text-[11px] font-medium transition hover:bg-accent"
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIdx(new Set())}
-                    className="rounded-full border border-input bg-background px-2.5 py-1 text-[11px] font-medium transition hover:bg-accent"
-                  >
-                    None
-                  </button>
-                </div>
+        {/* Notes article --------------------------------------------------- */}
+        {notes && (
+          <article className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_-40px_rgba(0,0,0,0.25)]">
+            {/* Magazine masthead */}
+            <div className="border-b border-border bg-foreground px-6 py-5 text-background sm:px-10 sm:py-7">
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-background/60">
+                <span>Vol. 01 — Field notes</span>
+                <span>{new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
               </div>
-              <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                {segments.map((s) => {
-                  const active = selectedIdx.has(s.index);
-                  return (
-                    <li key={s.index}>
-                      <label
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition ${
-                          active
-                            ? "border-primary/60 bg-primary/5 shadow-sm"
-                            : "border-border bg-background hover:border-foreground/30 hover:bg-accent/30"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={active}
-                          onChange={() => toggleSegment(s.index)}
-                          className="mt-1 accent-primary"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
-                              {s.label} {s.index}
-                            </span>
-                            <p className="truncate text-xs font-medium">{s.title}</p>
-                          </div>
-                          <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-                            {s.text || <em>(no text)</em>}
-                          </p>
-                        </div>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-              <button
-                type="button"
-                onClick={summarizeSelected}
-                disabled={summarizing || selectedIdx.size === 0}
-                className="inline-flex items-center justify-center gap-1.5 self-start rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
-              >
-                {summarizing ? (
-                  <>
-                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                    Summarizing…
-                  </>
-                ) : (
-                  <>✨ Summarize {selectedIdx.size} selected</>
-                )}
-              </button>
+              <h3 className="mt-3 font-serif text-3xl font-bold leading-tight sm:text-4xl">
+                {notes.topic}
+              </h3>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-background/70">
+                <span>{notes.keyPoints?.length ?? 0} key points</span>
+                <span className="opacity-40">·</span>
+                <span>{notes.keyTerms?.length ?? 0} key terms</span>
+                {docName && <><span className="opacity-40">·</span><span className="truncate max-w-[180px]">from {docName}</span></>}
+              </div>
             </div>
-          )}
 
-          {notes && (
-            <article className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-background to-accent/20 p-5 text-sm shadow-sm sm:p-6">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-accent/30 blur-3xl"
-              />
+            <div className="grid gap-8 px-6 py-7 sm:px-10 sm:py-10 md:grid-cols-[1fr_1.4fr]">
+              {/* Lede */}
+              <div>
+                <SectionLabel accent>Lede</SectionLabel>
+                <p className="font-serif text-lg leading-[1.55] text-foreground first-letter:float-left first-letter:mr-2 first-letter:font-serif first-letter:text-5xl first-letter:font-bold first-letter:leading-[0.9]">
+                  {notes.summary}
+                </p>
+              </div>
 
-              <div className="relative flex flex-col gap-5">
-                <header className="flex flex-col gap-2">
-                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    AI Summary
-                  </span>
-                  <h3 className="text-xl font-bold leading-tight tracking-tight sm:text-2xl">
-                    {notes.topic}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{notes.summary}</p>
-                  <div className="flex flex-wrap gap-3 pt-1 text-[11px] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="font-semibold text-foreground">{notes.keyPoints?.length ?? 0}</span>
-                      key points
-                    </span>
-                    <span className="opacity-40">·</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="font-semibold text-foreground">{notes.keyTerms?.length ?? 0}</span>
-                      key terms
-                    </span>
-                  </div>
-                </header>
-
-                {notes.keyPoints?.length > 0 && (
-                  <section className="flex flex-col gap-2">
-                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Key points
-                    </h4>
-                    <ul className="flex flex-col gap-2">
-                      {notes.keyPoints.map((p, i) => (
-                        <li
-                          key={i}
-                          className="group flex gap-3 rounded-lg border border-border/60 bg-background/70 p-3 backdrop-blur transition hover:border-foreground/30 hover:bg-background"
-                        >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                            {i + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm leading-snug">{p.text}</p>
-                            {p.sources?.length > 0 && (
-                              <div className="mt-1.5 flex flex-wrap gap-1">
-                                {p.sources.map((n) => (
-                                  <span
-                                    key={n}
-                                    className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-                                  >
-                                    {notes.sourceLabel} {n}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
-
-                {notes.keyTerms?.length > 0 && (
-                  <section className="flex flex-col gap-2">
-                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Key terms
-                    </h4>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {notes.keyTerms.map((t, i) => (
-                        <div
-                          key={i}
-                          className="rounded-lg border border-border/60 bg-background/70 p-3 backdrop-blur transition hover:border-foreground/30"
-                        >
-                          <p className="text-sm font-semibold">{t.term}</p>
-                          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
-                            {t.definition}
-                          </p>
-                          {t.sources?.length > 0 && (
+              {/* Key points */}
+              {notes.keyPoints?.length > 0 && (
+                <div>
+                  <SectionLabel>Key points</SectionLabel>
+                  <ol className="flex flex-col divide-y divide-border">
+                    {notes.keyPoints.map((p, i) => (
+                      <li key={i} className="flex gap-4 py-3 first:pt-0 last:pb-0">
+                        <span className="font-serif text-2xl font-bold leading-none text-accent">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-[15px] leading-snug">{p.text}</p>
+                          {p.sources?.length > 0 && (
                             <div className="mt-1.5 flex flex-wrap gap-1">
-                              {t.sources.map((n) => (
+                              {p.sources.map((n) => (
                                 <span
                                   key={n}
-                                  className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                  className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border"
                                 >
                                   {notes.sourceLabel} {n}
                                 </span>
@@ -472,222 +608,295 @@ function Index() {
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </div>
 
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTopic(notes.topic);
-                      if (!loading) generate(notes);
-                    }}
-                    disabled={loading}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
-                  >
-                    ✨ Generate whiteboard from these notes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const lines = [
-                        `# ${notes.topic}`,
-                        "",
-                        notes.summary,
-                        "",
-                        "## Key Points",
-                        ...notes.keyPoints.map(
-                          (p) =>
-                            `- ${p.text}${p.sources?.length ? ` [${notes.sourceLabel} ${p.sources.join(", ")}]` : ""}`,
-                        ),
-                        "",
-                        "## Key Terms",
-                        ...notes.keyTerms.map(
-                          (t) =>
-                            `- **${t.term}**: ${t.definition}${t.sources?.length ? ` [${notes.sourceLabel} ${t.sources.join(", ")}]` : ""}`,
-                        ),
-                      ].join("\n");
-                      navigator.clipboard.writeText(lines).then(
-                        () => toast.success("Notes copied"),
-                        () => toast.error("Copy failed"),
-                      );
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
-                  >
-                    Copy notes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        downloadNotesPdf(notes);
-                        toast.success("PDF downloaded");
-                      } catch (e) {
-                        console.error(e);
-                        toast.error("PDF download failed");
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
-                  >
-                    Download PDF
-                  </button>
+            {/* Key terms — sticky notes */}
+            {notes.keyTerms?.length > 0 && (
+              <div className="border-t border-border bg-secondary/40 px-6 py-7 sm:px-10 sm:py-10">
+                <SectionLabel>Glossary</SectionLabel>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {notes.keyTerms.map((t, i) => {
+                    const bg = i % 2 === 0 ? "bg-amber-note" : "bg-sage-note";
+                    const rot = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
+                    return (
+                      <div
+                        key={i}
+                        className={`${bg} ${rot} ring-1 ring-foreground/10 p-4 shadow-md`}
+                      >
+                        <p className="font-serif text-base font-bold leading-tight">{t.term}</p>
+                        <div className="mt-1 h-0.5 w-8 bg-foreground/30" />
+                        <p className="mt-2 text-xs leading-relaxed text-foreground/80">
+                          {t.definition}
+                        </p>
+                        {t.sources?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {t.sources.map((n) => (
+                              <span
+                                key={n}
+                                className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70"
+                              >
+                                {notes.sourceLabel} {n}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </article>
-          )}
-        </section>
+            )}
 
+            {/* Article actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-5 sm:px-10">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                End of article
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={copyNotes}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                >
+                  <Icon.Copy className="h-3.5 w-3.5" /> Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      downloadNotesPdf(notes);
+                      toast.success("PDF downloaded");
+                    } catch (e) {
+                      console.error(e);
+                      toast.error("PDF download failed");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                >
+                  <Icon.Download className="h-3.5 w-3.5" /> Download PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTopic(notes.topic);
+                    if (!loading) generate(notes);
+                  }}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background shadow-md hover:bg-foreground/90 disabled:opacity-50"
+                >
+                  <Icon.Sparkle className="h-3.5 w-3.5" />
+                  Compose whiteboard
+                </button>
+              </div>
+            </div>
+          </article>
+        )}
 
+        {/* Whiteboard composer -------------------------------------------- */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (!loading) generate();
           }}
-          className="flex flex-col gap-5 rounded-lg border border-border bg-card p-4 sm:p-6"
+          className="grid gap-6 rounded-3xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] sm:p-8 md:grid-cols-[1.2fr_1fr]"
         >
-          <div className="flex flex-col gap-2">
-            <label htmlFor="topic" className="text-sm font-medium">
-              Topic
-            </label>
-            <input
-              id="topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Photosynthesis, Newton's Laws, SQL Joins…"
-              className="rounded-md border border-input bg-background px-4 py-3 text-sm shadow-sm outline-none ring-ring/20 transition focus:ring-2"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Marker colors</span>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_PRESETS.map((c) => {
-                const active = colors.includes(c.value);
-                return (
-                  <button
-                    type="button"
-                    key={c.value}
-                    onClick={() => toggleColor(c.value)}
-                    disabled={loading}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                      active
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-input bg-background text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <span
-                      className="h-3 w-3 rounded-full ring-1 ring-border"
-                      style={{ backgroundColor: c.swatch }}
-                    />
-                    {c.name}
-                  </button>
-                );
-              })}
+          <div className="flex flex-col gap-5">
+            <div>
+              <SectionLabel accent>03 — Whiteboard composer</SectionLabel>
+              <h2 className="font-serif text-2xl font-bold tracking-tight">
+                Draw it on the board
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tune the topic, palette, and density. We hand-letter the rest.
+              </p>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <label htmlFor="num" className="flex items-center justify-between text-sm font-medium">
-                <span>Number of concepts</span>
-                <span className="text-muted-foreground">{numConcepts}</span>
+              <label htmlFor="topic" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Topic
               </label>
               <input
-                id="num"
-                type="range"
-                min={5}
-                max={20}
-                value={numConcepts}
-                onChange={(e) => setNumConcepts(Number(e.target.value))}
+                id="topic"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Photosynthesis, Newton's Laws, SQL Joins…"
+                className="rounded-xl border border-input bg-background px-4 py-3 text-base shadow-sm outline-none ring-accent/30 transition focus:border-accent focus:ring-2"
                 disabled={loading}
-                className="accent-foreground"
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Difficulty</span>
-              <div className="grid grid-cols-3 overflow-hidden rounded-md border border-input">
-                {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
-                  <button
-                    type="button"
-                    key={d}
-                    onClick={() => setDifficulty(d)}
-                    disabled={loading}
-                    className={`px-2 py-2 text-xs font-medium transition ${
-                      difficulty === d
-                        ? "bg-foreground text-background"
-                        : "bg-background text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Marker palette
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PRESETS.map((c) => {
+                  const active = colors.includes(c.value);
+                  return (
+                    <button
+                      type="button"
+                      key={c.value}
+                      onClick={() => toggleColor(c.value)}
+                      disabled={loading}
+                      className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-card text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full ring-1 ring-foreground/20"
+                        style={{ backgroundColor: c.swatch }}
+                      />
+                      {c.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <label htmlFor="num" className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  <span>Concepts</span>
+                  <span className="font-serif text-base normal-case tracking-normal text-foreground">{numConcepts}</span>
+                </label>
+                <input
+                  id="num"
+                  type="range"
+                  min={5}
+                  max={20}
+                  value={numConcepts}
+                  onChange={(e) => setNumConcepts(Number(e.target.value))}
+                  disabled={loading}
+                  className="accent-accent"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Difficulty
+                </span>
+                <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-input">
+                  {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
+                    <button
+                      type="button"
+                      key={d}
+                      onClick={() => setDifficulty(d)}
+                      disabled={loading}
+                      className={`px-2 py-2 text-[11px] font-semibold transition ${
+                        difficulty === d
+                          ? "bg-foreground text-background"
+                          : "bg-card text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-foreground px-6 py-3.5 text-sm font-semibold text-background shadow-lg shadow-foreground/20 transition hover:bg-foreground/90 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  Drawing…
+                </>
+              ) : (
+                <>
+                  <Icon.Sparkle className="h-4 w-4" /> Generate whiteboard
+                </>
+              )}
+            </button>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-          >
-            {loading ? "Generating…" : "Generate whiteboard"}
-          </button>
+          {/* Preview pane */}
+          <div className="flex flex-col gap-3">
+            <SectionLabel>Live preview</SectionLabel>
+            <div
+              aria-label="Generated whiteboard"
+              className="relative overflow-hidden rounded-2xl border border-border bg-secondary"
+              style={{ aspectRatio: "1024 / 1536" }}
+            >
+              {src ? (
+                <img
+                  src={src}
+                  alt={`Whiteboard study notes for ${topic}`}
+                  className="h-full w-full object-contain transition-[filter] duration-500"
+                  style={{ filter: isFinal ? "none" : "blur(16px)" }}
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center">
+                  <div className="font-serif text-base italic text-muted-foreground">
+                    {loading ? "Sketching your whiteboard…" : "Your whiteboard will appear here."}
+                  </div>
+                  {!loading && (
+                    <p className="text-[11px] text-muted-foreground/80">
+                      A4 portrait · marker on paper
+                    </p>
+                  )}
+                </div>
+              )}
+              {loading && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+                  <div className="flex items-center gap-2 rounded-full bg-background/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ring-1 ring-border backdrop-blur">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                    Rendering
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {src && isFinal && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadPng(src, topic)}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                >
+                  <Icon.Download className="h-3.5 w-3.5" /> PNG
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadPdf(src, topic).catch((e) => toast.error((e as Error).message))
+                  }
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                >
+                  <Icon.Download className="h-3.5 w-3.5" /> PDF
+                </button>
+              </div>
+            )}
+          </div>
         </form>
 
-        <section
-          aria-label="Generated whiteboard"
-          className="relative mx-auto w-full overflow-hidden rounded-lg border border-border bg-muted"
-          style={{ aspectRatio: "1024 / 1536" }}
-        >
-          {src ? (
-            <img
-              src={src}
-              alt={`Whiteboard study notes for ${topic}`}
-              className="h-full w-full object-contain transition-[filter] duration-500"
-              style={{ filter: isFinal ? "none" : "blur(16px)" }}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-              {loading
-                ? "Drawing your whiteboard…"
-                : "Your whiteboard will appear here."}
-            </div>
-          )}
-        </section>
-
-        {src && isFinal && (
-          <div className="flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => downloadPng(src, topic)}
-              className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent"
-            >
-              Download PNG
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                downloadPdf(src, topic).catch((e) => toast.error((e as Error).message))
-              }
-              className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent"
-            >
-              Download PDF
-            </button>
-          </div>
-        )}
-
+        {/* History --------------------------------------------------------- */}
         {history.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">History</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <section className="flex flex-col gap-5">
+            <div className="flex items-end justify-between">
+              <div>
+                <SectionLabel>Archive</SectionLabel>
+                <h2 className="font-serif text-2xl font-bold tracking-tight">
+                  Your past boards
+                </h2>
+              </div>
+              <span className="text-xs text-muted-foreground">{history.length} saved</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {history.map((item) => (
                 <article
                   key={item.id}
-                  className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card"
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:shadow-md"
                 >
                   <button
                     type="button"
@@ -698,21 +907,21 @@ function Index() {
                     <img
                       src={item.dataUrl}
                       alt={item.topic}
-                      className="aspect-[1024/1536] w-full object-cover transition group-hover:opacity-90"
+                      className="aspect-[1024/1536] w-full object-cover transition group-hover:scale-[1.02]"
                     />
                   </button>
-                  <div className="flex flex-col gap-2 p-2">
-                    <p className="line-clamp-2 text-xs font-medium" title={item.topic}>
+                  <div className="flex flex-col gap-2 p-3">
+                    <p className="font-serif text-sm font-bold leading-snug line-clamp-2" title={item.topic}>
                       {item.topic}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       {item.difficulty} · {item.numConcepts} concepts
                     </p>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="mt-1 flex flex-wrap gap-1">
                       <button
                         type="button"
                         onClick={() => downloadPng(item.dataUrl, item.topic)}
-                        className="rounded border border-input bg-background px-2 py-1 text-[10px] font-medium hover:bg-accent"
+                        className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold hover:bg-secondary"
                       >
                         PNG
                       </button>
@@ -723,14 +932,14 @@ function Index() {
                             toast.error((e as Error).message),
                           )
                         }
-                        className="rounded border border-input bg-background px-2 py-1 text-[10px] font-medium hover:bg-accent"
+                        className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold hover:bg-secondary"
                       >
                         PDF
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item.id)}
-                        className="ml-auto rounded border border-input bg-background px-2 py-1 text-[10px] font-medium text-destructive hover:bg-accent"
+                        className="ml-auto rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold text-destructive hover:bg-secondary"
                       >
                         Delete
                       </button>
@@ -741,6 +950,12 @@ function Index() {
             </div>
           </section>
         )}
+
+        <footer className="mt-4 border-t border-border pt-6 text-center">
+          <p className="font-serif text-sm italic text-muted-foreground">
+            DocBoard — editorial notes, drawn by hand.
+          </p>
+        </footer>
       </main>
     </div>
   );
