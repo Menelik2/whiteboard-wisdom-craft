@@ -372,11 +372,12 @@ function Index() {
 
 
         {/* Upload + Selection ---------------------------------------------- */}
-        <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_30px_60px_-30px_rgba(0,0,0,0.15)]">
-          <div className="grid gap-0 md:grid-cols-[1.05fr_1fr]">
+        <section className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_30px_60px_-30px_rgba(0,0,0,0.15)] sm:rounded-3xl">
+          <div className="grid gap-0 lg:grid-cols-[1.05fr_1fr]">
 
             {/* Left: Upload */}
-            <div className="border-b border-border p-6 md:border-b-0 md:border-r md:p-8">
+            <div className="border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
+
               <SectionLabel accent>01 — Document source</SectionLabel>
               <h2 className="font-serif text-2xl font-bold tracking-tight">
                 Drop a document
