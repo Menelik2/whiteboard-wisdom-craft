@@ -379,9 +379,10 @@ function Index() {
             <div className="border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
 
               <SectionLabel accent>01 — Document source</SectionLabel>
-              <h2 className="font-serif text-2xl font-bold tracking-tight">
+              <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                 Drop a document
               </h2>
+
               <p className="mt-1.5 text-sm text-muted-foreground">
                 PDF, DOCX, PPTX, PPT, TXT — up to a few hundred pages.
               </p>
