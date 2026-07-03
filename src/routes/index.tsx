@@ -624,7 +624,8 @@ function Index() {
 
             {/* Key terms — sticky notes */}
             {notes.keyTerms?.length > 0 && (
-              <div className="border-t border-border bg-secondary/40 px-6 py-7 sm:px-10 sm:py-10">
+              <div className="border-t border-border bg-secondary/40 px-5 py-6 sm:px-10 sm:py-10">
+
                 <SectionLabel>Glossary</SectionLabel>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {notes.keyTerms.map((t, i) => {
