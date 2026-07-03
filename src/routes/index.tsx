@@ -294,39 +294,41 @@ function Index() {
 
       {/* Top brand bar ----------------------------------------------------- */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/75 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-2.5">
-            <div className="relative h-8 w-8">
+        <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="relative h-8 w-8 shrink-0">
               <div className="absolute inset-0 rounded-lg bg-foreground" />
               <div className="absolute inset-[5px] rounded-[5px] bg-accent" />
               <div className="absolute inset-[9px] rounded-sm bg-background" />
             </div>
-            <div className="leading-none">
-              <p className="font-serif text-xl font-bold tracking-tight">DocBoard</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="min-w-0 leading-none">
+              <p className="truncate font-serif text-lg font-bold tracking-tight sm:text-xl">DocBoard</p>
+              <p className="mt-0.5 hidden text-[10px] uppercase tracking-[0.22em] text-muted-foreground sm:block">
                 Editorial study notes
               </p>
             </div>
           </div>
           <a
             href="#workspace"
-            className="hidden rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground/80 hover:bg-secondary sm:inline-flex"
+            className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-foreground/80 hover:bg-secondary sm:px-3.5 sm:text-xs"
           >
-            New summary →
+            <span className="hidden sm:inline">New summary →</span>
+            <span className="sm:hidden">New →</span>
           </a>
         </div>
       </header>
 
-      <main id="workspace" className="mx-auto flex max-w-5xl flex-col gap-12 px-5 py-10 sm:py-14">
+      <main id="workspace" className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 sm:gap-12 sm:px-5 sm:py-14 lg:px-8">
+
 
         {/* Hero ------------------------------------------------------------ */}
-        <section className="relative grid items-end gap-8 md:grid-cols-[1.4fr_1fr]">
-          <div>
+        <section className="relative grid items-end gap-8 lg:grid-cols-[1.4fr_1fr]">
+          <div className="min-w-0">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              Documents → Notes → Whiteboard
+              <span className="truncate">Documents → Notes → Whiteboard</span>
             </span>
-            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
+            <h1 className="mt-4 font-serif text-[2rem] font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
               Read less.
               <br />
               <span className="italic text-foreground/90">
@@ -338,14 +340,14 @@ function Index() {
                 .
               </span>
             </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
+            <p className="mt-5 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
               Upload a PDF, deck, or doc. DocBoard pulls the passages that matter and
               composes them into editorial notes — and a hand-drawn whiteboard you can print.
             </p>
           </div>
 
           {/* Mini whiteboard collage */}
-          <div className="relative hidden h-56 md:block">
+          <div className="relative hidden h-56 lg:block">
             <div className="absolute right-0 top-0 h-32 w-44 -rotate-3 bg-amber-note shadow-lg ring-1 ring-border p-3">
               <p className="font-serif text-[11px] font-bold leading-snug">Decentralized Energy</p>
               <div className="mt-2 h-0.5 w-8 bg-foreground/40" />
@@ -368,16 +370,19 @@ function Index() {
           </div>
         </section>
 
+
         {/* Upload + Selection ---------------------------------------------- */}
-        <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_30px_60px_-30px_rgba(0,0,0,0.15)]">
-          <div className="grid gap-0 md:grid-cols-[1.05fr_1fr]">
+        <section className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_30px_60px_-30px_rgba(0,0,0,0.15)] sm:rounded-3xl">
+          <div className="grid gap-0 lg:grid-cols-[1.05fr_1fr]">
 
             {/* Left: Upload */}
-            <div className="border-b border-border p-6 md:border-b-0 md:border-r md:p-8">
+            <div className="border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
+
               <SectionLabel accent>01 — Document source</SectionLabel>
-              <h2 className="font-serif text-2xl font-bold tracking-tight">
+              <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                 Drop a document
               </h2>
+
               <p className="mt-1.5 text-sm text-muted-foreground">
                 PDF, DOCX, PPTX, PPT, TXT — up to a few hundred pages.
               </p>
@@ -443,20 +448,21 @@ function Index() {
             </div>
 
             {/* Right: Selection */}
-            <div className="p-6 md:p-8">
-              <div className="flex items-end justify-between gap-2">
-                <div>
+            <div className="p-5 sm:p-6 lg:p-8">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+                <div className="min-w-0">
                   <SectionLabel>02 — Key passages</SectionLabel>
-                  <h2 className="font-serif text-2xl font-bold tracking-tight">
+                  <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                     Choose what to keep
                   </h2>
                 </div>
                 {segments.length > 0 && (
-                  <span className="rounded-full bg-accent/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                  <span className="shrink-0 rounded-full bg-accent/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
                     {selectedIdx.size} / {segments.length}
                   </span>
                 )}
               </div>
+
 
               {segments.length === 0 ? (
                 <div className="mt-5 flex h-[260px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/30 text-center">
@@ -556,14 +562,14 @@ function Index() {
 
         {/* Notes article --------------------------------------------------- */}
         {notes && (
-          <article className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_-40px_rgba(0,0,0,0.25)]">
+          <article className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_30px_80px_-40px_rgba(0,0,0,0.25)] sm:rounded-3xl">
             {/* Magazine masthead */}
-            <div className="border-b border-border bg-foreground px-6 py-5 text-background sm:px-10 sm:py-7">
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-background/60">
+            <div className="border-b border-border bg-foreground px-5 py-5 text-background sm:px-10 sm:py-7">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.3em] text-background/60">
                 <span>Vol. 01 — Field notes</span>
                 <span>{new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
               </div>
-              <h3 className="mt-3 font-serif text-3xl font-bold leading-tight sm:text-4xl">
+              <h3 className="mt-3 font-serif text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
                 {notes.topic}
               </h3>
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-background/70">
@@ -574,7 +580,8 @@ function Index() {
               </div>
             </div>
 
-            <div className="grid gap-8 px-6 py-7 sm:px-10 sm:py-10 md:grid-cols-[1fr_1.4fr]">
+            <div className="grid gap-8 px-5 py-6 sm:px-10 sm:py-10 lg:grid-cols-[1fr_1.4fr]">
+
               {/* Lede */}
               <div>
                 <SectionLabel accent>Lede</SectionLabel>
@@ -617,7 +624,8 @@ function Index() {
 
             {/* Key terms — sticky notes */}
             {notes.keyTerms?.length > 0 && (
-              <div className="border-t border-border bg-secondary/40 px-6 py-7 sm:px-10 sm:py-10">
+              <div className="border-t border-border bg-secondary/40 px-5 py-6 sm:px-10 sm:py-10">
+
                 <SectionLabel>Glossary</SectionLabel>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {notes.keyTerms.map((t, i) => {
@@ -653,15 +661,17 @@ function Index() {
             )}
 
             {/* Article actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-5 sm:px-10">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-5 sm:px-10">
+              <p className="w-full text-[11px] uppercase tracking-[0.22em] text-muted-foreground sm:w-auto">
                 End of article
               </p>
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+
                 <button
                   type="button"
                   onClick={copyNotes}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary sm:flex-none"
                 >
                   <Icon.Copy className="h-3.5 w-3.5" /> Copy
                 </button>
@@ -676,9 +686,9 @@ function Index() {
                       toast.error("PDF download failed");
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary sm:flex-none"
                 >
-                  <Icon.Download className="h-3.5 w-3.5" /> Download PDF
+                  <Icon.Download className="h-3.5 w-3.5" /> <span className="whitespace-nowrap">Download PDF</span>
                 </button>
                 <button
                   type="button"
@@ -687,11 +697,12 @@ function Index() {
                     if (!loading) generate(notes);
                   }}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background shadow-md hover:bg-foreground/90 disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background shadow-md hover:bg-foreground/90 disabled:opacity-50 sm:w-auto"
                 >
                   <Icon.Sparkle className="h-3.5 w-3.5" />
                   Compose whiteboard
                 </button>
+
               </div>
             </div>
           </article>
@@ -703,14 +714,15 @@ function Index() {
             e.preventDefault();
             if (!loading) generate();
           }}
-          className="grid gap-6 rounded-3xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] sm:p-8 md:grid-cols-[1.2fr_1fr]"
+          className="grid gap-6 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] sm:rounded-3xl sm:p-8 lg:grid-cols-[1.2fr_1fr]"
         >
-          <div className="flex flex-col gap-5">
+          <div className="flex min-w-0 flex-col gap-5">
             <div>
               <SectionLabel accent>03 — Whiteboard composer</SectionLabel>
-              <h2 className="font-serif text-2xl font-bold tracking-tight">
+              <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                 Draw it on the board
               </h2>
+
               <p className="mt-1 text-sm text-muted-foreground">
                 Tune the topic, palette, and density. We hand-letter the rest.
               </p>
@@ -821,7 +833,7 @@ function Index() {
           </div>
 
           {/* Preview pane */}
-          <div className="flex flex-col gap-3">
+          <div className="mx-auto flex w-full max-w-sm flex-col gap-3 lg:mx-0 lg:max-w-none">
             <SectionLabel>Live preview</SectionLabel>
             <div
               aria-label="Generated whiteboard"
@@ -883,16 +895,17 @@ function Index() {
         {/* History --------------------------------------------------------- */}
         {history.length > 0 && (
           <section className="flex flex-col gap-5">
-            <div className="flex items-end justify-between">
-              <div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+              <div className="min-w-0">
                 <SectionLabel>Archive</SectionLabel>
-                <h2 className="font-serif text-2xl font-bold tracking-tight">
+                <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                   Your past boards
                 </h2>
               </div>
-              <span className="text-xs text-muted-foreground">{history.length} saved</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{history.length} saved</span>
             </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+
               {history.map((item) => (
                 <article
                   key={item.id}
