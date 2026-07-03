@@ -833,7 +833,7 @@ function Index() {
           </div>
 
           {/* Preview pane */}
-          <div className="flex flex-col gap-3">
+          <div className="mx-auto flex w-full max-w-sm flex-col gap-3 lg:mx-0 lg:max-w-none">
             <SectionLabel>Live preview</SectionLabel>
             <div
               aria-label="Generated whiteboard"
