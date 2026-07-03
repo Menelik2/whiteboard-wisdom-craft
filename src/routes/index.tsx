@@ -562,14 +562,14 @@ function Index() {
 
         {/* Notes article --------------------------------------------------- */}
         {notes && (
-          <article className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_-40px_rgba(0,0,0,0.25)]">
+          <article className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_30px_80px_-40px_rgba(0,0,0,0.25)] sm:rounded-3xl">
             {/* Magazine masthead */}
-            <div className="border-b border-border bg-foreground px-6 py-5 text-background sm:px-10 sm:py-7">
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-background/60">
+            <div className="border-b border-border bg-foreground px-5 py-5 text-background sm:px-10 sm:py-7">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.3em] text-background/60">
                 <span>Vol. 01 — Field notes</span>
                 <span>{new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
               </div>
-              <h3 className="mt-3 font-serif text-3xl font-bold leading-tight sm:text-4xl">
+              <h3 className="mt-3 font-serif text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
                 {notes.topic}
               </h3>
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-background/70">
@@ -580,7 +580,8 @@ function Index() {
               </div>
             </div>
 
-            <div className="grid gap-8 px-6 py-7 sm:px-10 sm:py-10 md:grid-cols-[1fr_1.4fr]">
+            <div className="grid gap-8 px-5 py-6 sm:px-10 sm:py-10 lg:grid-cols-[1fr_1.4fr]">
+
               {/* Lede */}
               <div>
                 <SectionLabel accent>Lede</SectionLabel>
