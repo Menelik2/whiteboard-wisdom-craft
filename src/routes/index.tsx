@@ -895,16 +895,17 @@ function Index() {
         {/* History --------------------------------------------------------- */}
         {history.length > 0 && (
           <section className="flex flex-col gap-5">
-            <div className="flex items-end justify-between">
-              <div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+              <div className="min-w-0">
                 <SectionLabel>Archive</SectionLabel>
-                <h2 className="font-serif text-2xl font-bold tracking-tight">
+                <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                   Your past boards
                 </h2>
               </div>
-              <span className="text-xs text-muted-foreground">{history.length} saved</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{history.length} saved</span>
             </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+
               {history.map((item) => (
                 <article
                   key={item.id}
