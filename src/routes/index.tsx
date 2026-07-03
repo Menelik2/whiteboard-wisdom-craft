@@ -666,7 +666,8 @@ function Index() {
                 End of article
               </p>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+
                 <button
                   type="button"
                   onClick={copyNotes}
