@@ -322,13 +322,13 @@ function Index() {
 
 
         {/* Hero ------------------------------------------------------------ */}
-        <section className="relative grid items-end gap-8 md:grid-cols-[1.4fr_1fr]">
-          <div>
+        <section className="relative grid items-end gap-8 lg:grid-cols-[1.4fr_1fr]">
+          <div className="min-w-0">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              Documents → Notes → Whiteboard
+              <span className="truncate">Documents → Notes → Whiteboard</span>
             </span>
-            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
+            <h1 className="mt-4 font-serif text-[2rem] font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
               Read less.
               <br />
               <span className="italic text-foreground/90">
@@ -340,14 +340,14 @@ function Index() {
                 .
               </span>
             </h1>
-            <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground">
+            <p className="mt-5 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
               Upload a PDF, deck, or doc. DocBoard pulls the passages that matter and
               composes them into editorial notes — and a hand-drawn whiteboard you can print.
             </p>
           </div>
 
           {/* Mini whiteboard collage */}
-          <div className="relative hidden h-56 md:block">
+          <div className="relative hidden h-56 lg:block">
             <div className="absolute right-0 top-0 h-32 w-44 -rotate-3 bg-amber-note shadow-lg ring-1 ring-border p-3">
               <p className="font-serif text-[11px] font-bold leading-snug">Decentralized Energy</p>
               <div className="mt-2 h-0.5 w-8 bg-foreground/40" />
@@ -369,6 +369,7 @@ function Index() {
             </div>
           </div>
         </section>
+
 
         {/* Upload + Selection ---------------------------------------------- */}
         <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_30px_60px_-30px_rgba(0,0,0,0.15)]">
