@@ -294,30 +294,32 @@ function Index() {
 
       {/* Top brand bar ----------------------------------------------------- */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/75 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-2.5">
-            <div className="relative h-8 w-8">
+        <div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="relative h-8 w-8 shrink-0">
               <div className="absolute inset-0 rounded-lg bg-foreground" />
               <div className="absolute inset-[5px] rounded-[5px] bg-accent" />
               <div className="absolute inset-[9px] rounded-sm bg-background" />
             </div>
-            <div className="leading-none">
-              <p className="font-serif text-xl font-bold tracking-tight">DocBoard</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="min-w-0 leading-none">
+              <p className="truncate font-serif text-lg font-bold tracking-tight sm:text-xl">DocBoard</p>
+              <p className="mt-0.5 hidden text-[10px] uppercase tracking-[0.22em] text-muted-foreground sm:block">
                 Editorial study notes
               </p>
             </div>
           </div>
           <a
             href="#workspace"
-            className="hidden rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground/80 hover:bg-secondary sm:inline-flex"
+            className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-foreground/80 hover:bg-secondary sm:px-3.5 sm:text-xs"
           >
-            New summary →
+            <span className="hidden sm:inline">New summary →</span>
+            <span className="sm:hidden">New →</span>
           </a>
         </div>
       </header>
 
-      <main id="workspace" className="mx-auto flex max-w-5xl flex-col gap-12 px-5 py-10 sm:py-14">
+      <main id="workspace" className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 sm:gap-12 sm:px-5 sm:py-14 lg:px-8">
+
 
         {/* Hero ------------------------------------------------------------ */}
         <section className="relative grid items-end gap-8 md:grid-cols-[1.4fr_1fr]">
