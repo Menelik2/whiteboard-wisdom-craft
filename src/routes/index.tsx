@@ -661,10 +661,11 @@ function Index() {
             )}
 
             {/* Article actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-5 sm:px-10">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-5 sm:px-10">
+              <p className="w-full text-[11px] uppercase tracking-[0.22em] text-muted-foreground sm:w-auto">
                 End of article
               </p>
+
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
