@@ -714,14 +714,15 @@ function Index() {
             e.preventDefault();
             if (!loading) generate();
           }}
-          className="grid gap-6 rounded-3xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] sm:p-8 md:grid-cols-[1.2fr_1fr]"
+          className="grid gap-6 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] sm:rounded-3xl sm:p-8 lg:grid-cols-[1.2fr_1fr]"
         >
-          <div className="flex flex-col gap-5">
+          <div className="flex min-w-0 flex-col gap-5">
             <div>
               <SectionLabel accent>03 — Whiteboard composer</SectionLabel>
-              <h2 className="font-serif text-2xl font-bold tracking-tight">
+              <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                 Draw it on the board
               </h2>
+
               <p className="mt-1 text-sm text-muted-foreground">
                 Tune the topic, palette, and density. We hand-letter the rest.
               </p>
