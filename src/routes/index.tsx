@@ -447,20 +447,21 @@ function Index() {
             </div>
 
             {/* Right: Selection */}
-            <div className="p-6 md:p-8">
-              <div className="flex items-end justify-between gap-2">
-                <div>
+            <div className="p-5 sm:p-6 lg:p-8">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+                <div className="min-w-0">
                   <SectionLabel>02 — Key passages</SectionLabel>
-                  <h2 className="font-serif text-2xl font-bold tracking-tight">
+                  <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
                     Choose what to keep
                   </h2>
                 </div>
                 {segments.length > 0 && (
-                  <span className="rounded-full bg-accent/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                  <span className="shrink-0 rounded-full bg-accent/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
                     {selectedIdx.size} / {segments.length}
                   </span>
                 )}
               </div>
+
 
               {segments.length === 0 ? (
                 <div className="mt-5 flex h-[260px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/30 text-center">
