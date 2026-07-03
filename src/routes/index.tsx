@@ -671,7 +671,7 @@ function Index() {
                 <button
                   type="button"
                   onClick={copyNotes}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary sm:flex-none"
                 >
                   <Icon.Copy className="h-3.5 w-3.5" /> Copy
                 </button>
@@ -686,9 +686,9 @@ function Index() {
                       toast.error("PDF download failed");
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary sm:flex-none"
                 >
-                  <Icon.Download className="h-3.5 w-3.5" /> Download PDF
+                  <Icon.Download className="h-3.5 w-3.5" /> <span className="whitespace-nowrap">Download PDF</span>
                 </button>
                 <button
                   type="button"
@@ -697,11 +697,12 @@ function Index() {
                     if (!loading) generate(notes);
                   }}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background shadow-md hover:bg-foreground/90 disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background shadow-md hover:bg-foreground/90 disabled:opacity-50 sm:w-auto"
                 >
                   <Icon.Sparkle className="h-3.5 w-3.5" />
                   Compose whiteboard
                 </button>
+
               </div>
             </div>
           </article>
