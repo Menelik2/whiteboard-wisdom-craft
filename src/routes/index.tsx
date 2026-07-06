@@ -205,10 +205,16 @@ function Index() {
     abortRef.current = ctrl;
 
     const runs = Math.min(4, Math.max(1, variants));
+    const slots = Array.from({ length: runs }, () => ({
+      id: crypto.randomUUID(),
+      dataUrl: null as string | null,
+      status: "pending" as "pending" | "streaming" | "done",
+    }));
     setSrc(null);
     setIsFinal(false);
     setLoading(true);
-    setBatch([]);
+    setBatch(slots);
+    setActiveVariant(0);
     setBatchProgress({ current: 1, total: runs });
     lastSettingsRef.current = {
       topic: t,
@@ -218,14 +224,27 @@ function Index() {
     };
 
     const notesPayload = overrideNotes ?? notes;
-    const completed: { id: string; dataUrl: string }[] = [];
+    let completedCount = 0;
+
+    const updateSlot = (
+      idx: number,
+      patch: Partial<{ dataUrl: string | null; status: "pending" | "streaming" | "done" }>,
+    ) => {
+      setBatch((prev) => {
+        const next = prev.slice();
+        if (next[idx]) next[idx] = { ...next[idx], ...patch };
+        return next;
+      });
+    };
 
     try {
       for (let i = 0; i < runs; i++) {
         if (ctrl.signal.aborted) break;
         setBatchProgress({ current: i + 1, total: runs });
+        setActiveVariant(i);
         setSrc(null);
         setIsFinal(false);
+        updateSlot(i, { status: "streaming" });
         await streamImage(
           "/api/generate-whiteboard",
           {
@@ -237,24 +256,24 @@ function Index() {
           },
           (dataUrl, final) => {
             setSrc(dataUrl);
+            updateSlot(i, { dataUrl, status: final ? "done" : "streaming" });
             if (final) {
               setIsFinal(true);
               const item: HistoryItem = {
-                id: crypto.randomUUID(),
+                id: slots[i].id,
                 dataUrl,
                 createdAt: Date.now(),
                 ...lastSettingsRef.current!,
               };
               saveToHistory(item);
-              completed.push({ id: item.id, dataUrl });
-              setBatch([...completed]);
+              completedCount++;
             }
           },
           ctrl.signal,
         );
       }
       setHistory(loadHistory());
-      if (runs > 1) toast.success(`${completed.length} whiteboards ready`);
+      if (runs > 1) toast.success(`${completedCount} whiteboards ready`);
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         console.error(e);
