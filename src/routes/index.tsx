@@ -101,10 +101,13 @@ function Index() {
   const [colors, setColors] = useState<string[]>(["black", "blue", "green", "orange", "red"]);
   const [numConcepts, setNumConcepts] = useState(12);
   const [difficulty, setDifficulty] = useState<Difficulty>("Intermediate");
+  const [variants, setVariants] = useState(1);
 
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [batch, setBatch] = useState<{ id: string; dataUrl: string }[]>([]);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [notes, setNotes] = useState<Notes | null>(null);
   const [docName, setDocName] = useState<string | null>(null);
@@ -200,9 +203,12 @@ function Index() {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    const runs = Math.min(4, Math.max(1, variants));
     setSrc(null);
     setIsFinal(false);
     setLoading(true);
+    setBatch([]);
+    setBatchProgress({ current: 1, total: runs });
     lastSettingsRef.current = {
       topic: t,
       difficulty,
@@ -211,39 +217,50 @@ function Index() {
     };
 
     const notesPayload = overrideNotes ?? notes;
+    const completed: { id: string; dataUrl: string }[] = [];
 
     try {
-      await streamImage(
-        "/api/generate-whiteboard",
-        {
-          topic: t,
-          markerColors: colors,
-          numConcepts,
-          difficulty,
-          ...(notesPayload ? { notes: notesPayload } : {}),
-        },
-        (dataUrl, final) => {
-          setSrc(dataUrl);
-          if (final) {
-            setIsFinal(true);
-            const item: HistoryItem = {
-              id: crypto.randomUUID(),
-              dataUrl,
-              createdAt: Date.now(),
-              ...lastSettingsRef.current!,
-            };
-            saveToHistory(item);
-            setHistory(loadHistory());
-          }
-        },
-        ctrl.signal,
-      );
+      for (let i = 0; i < runs; i++) {
+        if (ctrl.signal.aborted) break;
+        setBatchProgress({ current: i + 1, total: runs });
+        setSrc(null);
+        setIsFinal(false);
+        await streamImage(
+          "/api/generate-whiteboard",
+          {
+            topic: t,
+            markerColors: colors,
+            numConcepts,
+            difficulty,
+            ...(notesPayload ? { notes: notesPayload } : {}),
+          },
+          (dataUrl, final) => {
+            setSrc(dataUrl);
+            if (final) {
+              setIsFinal(true);
+              const item: HistoryItem = {
+                id: crypto.randomUUID(),
+                dataUrl,
+                createdAt: Date.now(),
+                ...lastSettingsRef.current!,
+              };
+              saveToHistory(item);
+              completed.push({ id: item.id, dataUrl });
+              setBatch([...completed]);
+            }
+          },
+          ctrl.signal,
+        );
+      }
+      setHistory(loadHistory());
+      if (runs > 1) toast.success(`${completed.length} whiteboards ready`);
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         console.error(e);
         toast.error((e as Error).message || "Generation failed");
       }
     } finally {
+      setBatchProgress(null);
       setLoading(false);
     }
   };
@@ -814,6 +831,35 @@ function Index() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-2">
+              <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                <span>Variants</span>
+                <span className="font-serif text-base normal-case tracking-normal text-foreground">
+                  {variants} board{variants > 1 ? "s" : ""}
+                </span>
+              </span>
+              <div className="grid grid-cols-4 overflow-hidden rounded-xl border border-input">
+                {[1, 2, 3, 4].map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    onClick={() => setVariants(n)}
+                    disabled={loading}
+                    className={`px-2 py-2 text-[11px] font-semibold transition ${
+                      variants === n
+                        ? "bg-foreground text-background"
+                        : "bg-card text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    ×{n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Draw multiple takes in one go — each streams into the preview and saves to your archive.
+              </p>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -822,11 +868,13 @@ function Index() {
               {loading ? (
                 <>
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                  Drawing…
+                  {batchProgress && batchProgress.total > 1
+                    ? `Drawing ${batchProgress.current} of ${batchProgress.total}…`
+                    : "Drawing…"}
                 </>
               ) : (
                 <>
-                  <Icon.Sparkle className="h-4 w-4" /> Generate whiteboard
+                  <Icon.Sparkle className="h-4 w-4" /> Generate {variants > 1 ? `${variants} whiteboards` : "whiteboard"}
                 </>
               )}
             </button>
@@ -887,6 +935,41 @@ function Index() {
                 >
                   <Icon.Download className="h-3.5 w-3.5" /> PDF
                 </button>
+              </div>
+            )}
+
+            {batch.length > 1 && (
+              <div className="mt-1 flex flex-col gap-2">
+                <SectionLabel>This batch · {batch.length}{batchProgress ? ` of ${batchProgress.total}` : ""}</SectionLabel>
+                <div className="grid grid-cols-4 gap-2">
+                  {batch.map((b, i) => (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => { setSrc(b.dataUrl); setIsFinal(true); }}
+                      className={`group relative overflow-hidden rounded-lg border bg-secondary transition ${
+                        src === b.dataUrl ? "border-foreground ring-2 ring-accent" : "border-border hover:border-foreground/60"
+                      }`}
+                      style={{ aspectRatio: "1024 / 1536" }}
+                      aria-label={`Show variant ${i + 1}`}
+                    >
+                      <img src={b.dataUrl} alt={`Variant ${i + 1}`} className="h-full w-full object-cover" />
+                      <span className="absolute left-1 top-1 rounded-full bg-background/85 px-1.5 py-0.5 font-serif text-[10px] font-bold ring-1 ring-border">
+                        ×{i + 1}
+                      </span>
+                    </button>
+                  ))}
+                  {batchProgress &&
+                    Array.from({ length: Math.max(0, batchProgress.total - batch.length) }).map((_, i) => (
+                      <div
+                        key={`ph-${i}`}
+                        className="flex items-center justify-center rounded-lg border border-dashed border-border bg-secondary/60"
+                        style={{ aspectRatio: "1024 / 1536" }}
+                      >
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
           </div>
