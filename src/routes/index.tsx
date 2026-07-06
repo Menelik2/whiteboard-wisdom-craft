@@ -101,10 +101,13 @@ function Index() {
   const [colors, setColors] = useState<string[]>(["black", "blue", "green", "orange", "red"]);
   const [numConcepts, setNumConcepts] = useState(12);
   const [difficulty, setDifficulty] = useState<Difficulty>("Intermediate");
+  const [variants, setVariants] = useState(1);
 
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [batch, setBatch] = useState<{ id: string; dataUrl: string }[]>([]);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [notes, setNotes] = useState<Notes | null>(null);
   const [docName, setDocName] = useState<string | null>(null);
