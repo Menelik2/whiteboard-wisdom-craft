@@ -958,40 +958,86 @@ function Index() {
               </div>
             )}
 
-            {batch.length > 1 && (
-              <div className="mt-1 flex flex-col gap-2">
-                <SectionLabel>This batch · {batch.length}{batchProgress ? ` of ${batchProgress.total}` : ""}</SectionLabel>
-                <div className="grid grid-cols-4 gap-2">
-                  {batch.map((b, i) => (
-                    <button
-                      type="button"
-                      key={b.id}
-                      onClick={() => { setSrc(b.dataUrl); setIsFinal(true); }}
-                      className={`group relative overflow-hidden rounded-lg border bg-secondary transition ${
-                        src === b.dataUrl ? "border-foreground ring-2 ring-accent" : "border-border hover:border-foreground/60"
-                      }`}
-                      style={{ aspectRatio: "1024 / 1536" }}
-                      aria-label={`Show variant ${i + 1}`}
-                    >
-                      <img src={b.dataUrl} alt={`Variant ${i + 1}`} className="h-full w-full object-cover" />
-                      <span className="absolute left-1 top-1 rounded-full bg-background/85 px-1.5 py-0.5 font-serif text-[10px] font-bold ring-1 ring-border">
-                        ×{i + 1}
-                      </span>
-                    </button>
-                  ))}
-                  {batchProgress &&
-                    Array.from({ length: Math.max(0, batchProgress.total - batch.length) }).map((_, i) => (
-                      <div
-                        key={`ph-${i}`}
-                        className="flex items-center justify-center rounded-lg border border-dashed border-border bg-secondary/60"
-                        style={{ aspectRatio: "1024 / 1536" }}
-                      >
-                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
-                      </div>
-                    ))}
+            {batch.length > 1 && (() => {
+              const doneCount = batch.filter((b) => b.status === "done").length;
+              return (
+                <div className="mt-1 flex flex-col gap-2">
+                  <SectionLabel>
+                    This batch · {doneCount} of {batch.length}{loading ? " · drawing…" : " · complete"}
+                  </SectionLabel>
+                  <div className="grid grid-cols-4 gap-2">
+                    {batch.map((b, i) => {
+                      const isActive = i === activeVariant;
+                      const isSelected = b.dataUrl != null && src === b.dataUrl;
+                      return (
+                        <button
+                          type="button"
+                          key={b.id}
+                          onClick={() => {
+                            if (b.dataUrl) {
+                              setSrc(b.dataUrl);
+                              setIsFinal(b.status === "done");
+                            }
+                          }}
+                          disabled={!b.dataUrl}
+                          className={`group relative overflow-hidden rounded-lg border bg-secondary transition ${
+                            isSelected
+                              ? "border-foreground ring-2 ring-accent"
+                              : isActive && b.status === "streaming"
+                                ? "border-accent ring-1 ring-accent/60"
+                                : "border-border hover:border-foreground/60"
+                          } ${!b.dataUrl ? "cursor-default" : ""}`}
+                          style={{ aspectRatio: "1024 / 1536" }}
+                          aria-label={`Variant ${i + 1} — ${b.status}`}
+                        >
+                          {b.dataUrl ? (
+                            <img
+                              src={b.dataUrl}
+                              alt={`Variant ${i + 1}`}
+                              className="h-full w-full object-cover transition-[filter] duration-500"
+                              style={{ filter: b.status === "done" ? "none" : "blur(6px)" }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-secondary/60">
+                              <span
+                                className={`inline-block h-3 w-3 rounded-full border-2 ${
+                                  b.status === "streaming"
+                                    ? "animate-spin border-accent border-t-transparent"
+                                    : "border-dashed border-foreground/30"
+                                }`}
+                              />
+                            </div>
+                          )}
+
+                          {/* Streaming shimmer bar */}
+                          {b.status === "streaming" && (
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-foreground/10">
+                              <div className="h-full w-1/3 animate-[shimmer_1.2s_linear_infinite] bg-accent" />
+                            </div>
+                          )}
+
+                          {/* Corner badge */}
+                          <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-background/85 px-1.5 py-0.5 font-serif text-[10px] font-bold ring-1 ring-border">
+                            ×{i + 1}
+                            {b.status === "done" && (
+                              <Icon.Check className="h-2.5 w-2.5 text-emerald-600" />
+                            )}
+                            {b.status === "streaming" && (
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                            )}
+                          </span>
+
+                          {/* Status footer */}
+                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-3 text-center text-[9px] font-semibold uppercase tracking-wider text-foreground/80">
+                            {b.status === "done" ? "Ready" : b.status === "streaming" ? "Drawing" : "Queued"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </form>
 
