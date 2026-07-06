@@ -203,9 +203,12 @@ function Index() {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    const runs = Math.min(4, Math.max(1, variants));
     setSrc(null);
     setIsFinal(false);
     setLoading(true);
+    setBatch([]);
+    setBatchProgress({ current: 1, total: runs });
     lastSettingsRef.current = {
       topic: t,
       difficulty,
@@ -214,39 +217,50 @@ function Index() {
     };
 
     const notesPayload = overrideNotes ?? notes;
+    const completed: { id: string; dataUrl: string }[] = [];
 
     try {
-      await streamImage(
-        "/api/generate-whiteboard",
-        {
-          topic: t,
-          markerColors: colors,
-          numConcepts,
-          difficulty,
-          ...(notesPayload ? { notes: notesPayload } : {}),
-        },
-        (dataUrl, final) => {
-          setSrc(dataUrl);
-          if (final) {
-            setIsFinal(true);
-            const item: HistoryItem = {
-              id: crypto.randomUUID(),
-              dataUrl,
-              createdAt: Date.now(),
-              ...lastSettingsRef.current!,
-            };
-            saveToHistory(item);
-            setHistory(loadHistory());
-          }
-        },
-        ctrl.signal,
-      );
+      for (let i = 0; i < runs; i++) {
+        if (ctrl.signal.aborted) break;
+        setBatchProgress({ current: i + 1, total: runs });
+        setSrc(null);
+        setIsFinal(false);
+        await streamImage(
+          "/api/generate-whiteboard",
+          {
+            topic: t,
+            markerColors: colors,
+            numConcepts,
+            difficulty,
+            ...(notesPayload ? { notes: notesPayload } : {}),
+          },
+          (dataUrl, final) => {
+            setSrc(dataUrl);
+            if (final) {
+              setIsFinal(true);
+              const item: HistoryItem = {
+                id: crypto.randomUUID(),
+                dataUrl,
+                createdAt: Date.now(),
+                ...lastSettingsRef.current!,
+              };
+              saveToHistory(item);
+              completed.push({ id: item.id, dataUrl });
+              setBatch([...completed]);
+            }
+          },
+          ctrl.signal,
+        );
+      }
+      setHistory(loadHistory());
+      if (runs > 1) toast.success(`${completed.length} whiteboards ready`);
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         console.error(e);
         toast.error((e as Error).message || "Generation failed");
       }
     } finally {
+      setBatchProgress(null);
       setLoading(false);
     }
   };
