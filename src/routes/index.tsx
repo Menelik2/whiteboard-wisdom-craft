@@ -106,8 +106,9 @@ function Index() {
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [batch, setBatch] = useState<{ id: string; dataUrl: string }[]>([]);
+  const [batch, setBatch] = useState<{ id: string; dataUrl: string | null; status: "pending" | "streaming" | "done" }[]>([]);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [activeVariant, setActiveVariant] = useState(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [notes, setNotes] = useState<Notes | null>(null);
   const [docName, setDocName] = useState<string | null>(null);
