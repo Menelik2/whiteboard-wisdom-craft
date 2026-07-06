@@ -831,6 +831,35 @@ function Index() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-2">
+              <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                <span>Variants</span>
+                <span className="font-serif text-base normal-case tracking-normal text-foreground">
+                  {variants} board{variants > 1 ? "s" : ""}
+                </span>
+              </span>
+              <div className="grid grid-cols-4 overflow-hidden rounded-xl border border-input">
+                {[1, 2, 3, 4].map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    onClick={() => setVariants(n)}
+                    disabled={loading}
+                    className={`px-2 py-2 text-[11px] font-semibold transition ${
+                      variants === n
+                        ? "bg-foreground text-background"
+                        : "bg-card text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    ×{n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Draw multiple takes in one go — each streams into the preview and saves to your archive.
+              </p>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -839,11 +868,13 @@ function Index() {
               {loading ? (
                 <>
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                  Drawing…
+                  {batchProgress && batchProgress.total > 1
+                    ? `Drawing ${batchProgress.current} of ${batchProgress.total}…`
+                    : "Drawing…"}
                 </>
               ) : (
                 <>
-                  <Icon.Sparkle className="h-4 w-4" /> Generate whiteboard
+                  <Icon.Sparkle className="h-4 w-4" /> Generate {variants > 1 ? `${variants} whiteboards` : "whiteboard"}
                 </>
               )}
             </button>
