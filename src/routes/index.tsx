@@ -937,6 +937,41 @@ function Index() {
                 </button>
               </div>
             )}
+
+            {batch.length > 1 && (
+              <div className="mt-1 flex flex-col gap-2">
+                <SectionLabel>This batch · {batch.length}{batchProgress ? ` of ${batchProgress.total}` : ""}</SectionLabel>
+                <div className="grid grid-cols-4 gap-2">
+                  {batch.map((b, i) => (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => { setSrc(b.dataUrl); setIsFinal(true); }}
+                      className={`group relative overflow-hidden rounded-lg border bg-secondary transition ${
+                        src === b.dataUrl ? "border-foreground ring-2 ring-accent" : "border-border hover:border-foreground/60"
+                      }`}
+                      style={{ aspectRatio: "1024 / 1536" }}
+                      aria-label={`Show variant ${i + 1}`}
+                    >
+                      <img src={b.dataUrl} alt={`Variant ${i + 1}`} className="h-full w-full object-cover" />
+                      <span className="absolute left-1 top-1 rounded-full bg-background/85 px-1.5 py-0.5 font-serif text-[10px] font-bold ring-1 ring-border">
+                        ×{i + 1}
+                      </span>
+                    </button>
+                  ))}
+                  {batchProgress &&
+                    Array.from({ length: Math.max(0, batchProgress.total - batch.length) }).map((_, i) => (
+                      <div
+                        key={`ph-${i}`}
+                        className="flex items-center justify-center rounded-lg border border-dashed border-border bg-secondary/60"
+                        style={{ aspectRatio: "1024 / 1536" }}
+                      >
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-foreground/40 border-t-transparent" />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </form>
 
