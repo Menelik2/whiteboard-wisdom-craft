@@ -875,20 +875,27 @@ function Index() {
                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Difficulty
                 </span>
-                <div className="relative grid grid-cols-3 rounded-xl bg-secondary/70 p-1">
+                <div
+                  className="relative grid grid-cols-3 rounded-xl bg-secondary/70 p-1"
+                  role="radiogroup"
+                  aria-label="Difficulty level"
+                >
                   {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
                     <button
                       type="button"
                       key={d}
                       onClick={() => setDifficulty(d)}
                       disabled={loading}
+                      role="radio"
+                      aria-checked={difficulty === d}
+                      aria-label={`Difficulty ${d}`}
                       className={`relative z-10 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                         difficulty === d
                           ? "bg-foreground text-background shadow-md"
-                          : "text-foreground/70 hover:text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {d.slice(0, 3)}
+                      <span aria-hidden="true">{d.slice(0, 3)}</span>
                     </button>
                   ))}
                 </div>
@@ -905,26 +912,38 @@ function Index() {
                   {variants} board{variants > 1 ? "s" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Number of whiteboard variants">
                 {[1, 2, 3, 4].map((n) => (
                   <button
                     type="button"
                     key={n}
                     onClick={() => setVariants(n)}
                     disabled={loading}
+                    role="radio"
+                    aria-checked={variants === n}
+                    aria-label={`${n} variant${n > 1 ? "s" : ""}`}
                     className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2.5 text-xs font-bold transition ${
                       variants === n
                         ? "bg-foreground text-background shadow-lg shadow-foreground/20"
-                        : "bg-secondary/70 text-foreground/70 hover:bg-secondary hover:text-foreground"
+                        : "bg-secondary/70 text-muted-foreground hover:bg-secondary hover:text-foreground"
                     }`}
                   >
-                    <span className="font-serif text-lg leading-none">×{n}</span>
+                    <span className="font-serif text-lg leading-none" aria-hidden="true">×{n}</span>
                   </button>
                 ))}
               </div>
               <p className="text-[10px] leading-relaxed text-muted-foreground">
                 Draw multiple takes in one go — each streams into the preview.
               </p>
+            </div>
+
+            {/* Live region for batch status announcements */}
+            <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+              {loading && batchProgress
+                ? `Drawing whiteboard ${batchProgress.current} of ${batchProgress.total}`
+                : batch.length > 0
+                  ? `${batch.filter((b) => b.status === "done").length} of ${batch.length} whiteboards ready`
+                  : ""}
             </div>
 
             {/* Generate CTA */}
@@ -1019,18 +1038,20 @@ function Index() {
                 <button
                   type="button"
                   onClick={() => downloadPng(src, topic)}
+                  aria-label={`Download whiteboard for ${topic || "current topic"} as PNG`}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card/80 px-4 py-2.5 text-xs font-semibold shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-md"
                 >
-                  <Icon.Download className="h-3.5 w-3.5" /> PNG
+                  <Icon.Download className="h-3.5 w-3.5" aria-hidden="true" /> PNG
                 </button>
                 <button
                   type="button"
                   onClick={() =>
                     downloadPdf(src, topic).catch((e) => toast.error((e as Error).message))
                   }
+                  aria-label={`Download whiteboard for ${topic || "current topic"} as PDF`}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card/80 px-4 py-2.5 text-xs font-semibold shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-md"
                 >
-                  <Icon.Download className="h-3.5 w-3.5" /> PDF
+                  <Icon.Download className="h-3.5 w-3.5" aria-hidden="true" /> PDF
                 </button>
               </div>
             )}

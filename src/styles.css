@@ -135,6 +135,13 @@
     font-family: var(--font-serif);
     letter-spacing: -0.02em;
   }
+
+  /* Default keyboard focus ring — visible on any focused control */
+  :where(button, [role="button"], a, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 /* Subtle paper grain background utility */
@@ -149,3 +156,26 @@
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
 }
+
+/* Focus-visible ring utility for interactive controls */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 9999px;
+  }
+}
+
+/* Respect prefers-reduced-motion: disable shimmer, pulse, spin, and
+   transform-based animations across the app for users who opt out. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
