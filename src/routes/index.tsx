@@ -927,6 +927,15 @@ function Index() {
               </p>
             </div>
 
+            {/* Live region for batch status announcements */}
+            <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+              {loading && batchProgress
+                ? `Drawing whiteboard ${batchProgress.current} of ${batchProgress.total}`
+                : batch.length > 0
+                  ? `${batch.filter((b) => b.status === "done").length} of ${batch.length} whiteboards ready`
+                  : ""}
+            </div>
+
             {/* Generate CTA */}
             <button
               type="submit"
