@@ -875,20 +875,27 @@ function Index() {
                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Difficulty
                 </span>
-                <div className="relative grid grid-cols-3 rounded-xl bg-secondary/70 p-1">
+                <div
+                  className="relative grid grid-cols-3 rounded-xl bg-secondary/70 p-1"
+                  role="radiogroup"
+                  aria-label="Difficulty level"
+                >
                   {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
                     <button
                       type="button"
                       key={d}
                       onClick={() => setDifficulty(d)}
                       disabled={loading}
+                      role="radio"
+                      aria-checked={difficulty === d}
+                      aria-label={`Difficulty ${d}`}
                       className={`relative z-10 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                         difficulty === d
                           ? "bg-foreground text-background shadow-md"
-                          : "text-foreground/70 hover:text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {d.slice(0, 3)}
+                      <span aria-hidden="true">{d.slice(0, 3)}</span>
                     </button>
                   ))}
                 </div>
