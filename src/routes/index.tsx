@@ -912,20 +912,23 @@ function Index() {
                   {variants} board{variants > 1 ? "s" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Number of whiteboard variants">
                 {[1, 2, 3, 4].map((n) => (
                   <button
                     type="button"
                     key={n}
                     onClick={() => setVariants(n)}
                     disabled={loading}
+                    role="radio"
+                    aria-checked={variants === n}
+                    aria-label={`${n} variant${n > 1 ? "s" : ""}`}
                     className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2.5 text-xs font-bold transition ${
                       variants === n
                         ? "bg-foreground text-background shadow-lg shadow-foreground/20"
-                        : "bg-secondary/70 text-foreground/70 hover:bg-secondary hover:text-foreground"
+                        : "bg-secondary/70 text-muted-foreground hover:bg-secondary hover:text-foreground"
                     }`}
                   >
-                    <span className="font-serif text-lg leading-none">×{n}</span>
+                    <span className="font-serif text-lg leading-none" aria-hidden="true">×{n}</span>
                   </button>
                 ))}
               </div>
