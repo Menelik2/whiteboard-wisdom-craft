@@ -751,39 +751,71 @@ function Index() {
             e.preventDefault();
             if (!loading) generate();
           }}
-          className="grid gap-6 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_0_0_rgba(0,0,0,0.04)] sm:rounded-3xl sm:p-8 lg:grid-cols-[1.2fr_1fr]"
+          className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-card via-card to-secondary/40 p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.6)_inset,0_40px_80px_-40px_rgba(0,0,0,0.25)] sm:p-8"
         >
-          <div className="flex min-w-0 flex-col gap-5">
-            <div>
-              <SectionLabel accent>03 — Whiteboard composer</SectionLabel>
-              <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">
-                Draw it on the board
-              </h2>
+          {/* Ambient glow */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/30 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-amber-note/40 blur-3xl"
+          />
 
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tune the topic, palette, and density. We hand-letter the rest.
-              </p>
+          <div className="relative grid gap-8 lg:grid-cols-[1.2fr_1fr]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-foreground/80 backdrop-blur">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                  Step 03 · Composer
+                </div>
+                <h2 className="font-serif text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                  Draw it on the board
+                </h2>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  Tune the topic, palette, and density. We hand-letter the rest.
+                </p>
+              </div>
+              <div className="hidden shrink-0 rounded-2xl border border-border bg-background/70 p-2.5 shadow-sm backdrop-blur sm:block">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-foreground text-background">
+                  <Icon.Sparkle className="h-4 w-4" />
+                </div>
+              </div>
             </div>
 
+            {/* Topic input */}
             <div className="flex flex-col gap-2">
               <label htmlFor="topic" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Topic
               </label>
-              <input
-                id="topic"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="Photosynthesis, Newton's Laws, SQL Joins…"
-                className="rounded-xl border border-input bg-background px-4 py-3 text-base shadow-sm outline-none ring-accent/30 transition focus:border-accent focus:ring-2"
-                disabled={loading}
-              />
+              <div className="group relative">
+                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 transition group-focus-within:text-accent">
+                  <Icon.Sparkle className="h-4 w-4" />
+                </div>
+                <input
+                  id="topic"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Photosynthesis, Newton's Laws, SQL Joins…"
+                  className="w-full rounded-2xl border border-input bg-background/80 py-3.5 pl-11 pr-4 text-base shadow-inner outline-none ring-accent/30 backdrop-blur transition placeholder:text-muted-foreground/50 focus:border-accent focus:bg-background focus:ring-2"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Marker palette
-              </span>
-              <div className="flex flex-wrap gap-2">
+            {/* Marker palette — dot chips */}
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Marker palette
+                </span>
+                <span className="text-[10px] text-muted-foreground/70">
+                  {colors.length} selected
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
                 {COLOR_PRESETS.map((c) => {
                   const active = colors.includes(c.value);
                   return (
@@ -792,28 +824,37 @@ function Index() {
                       key={c.value}
                       onClick={() => toggleColor(c.value)}
                       disabled={loading}
-                      className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      title={c.name}
+                      aria-pressed={active}
+                      className={`group relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 ${
                         active
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-card text-foreground hover:bg-secondary"
+                          ? "scale-105 ring-2 ring-offset-2 ring-offset-card"
+                          : "opacity-60 hover:opacity-100 hover:scale-105"
                       }`}
+                      style={{
+                        // @ts-expect-error CSS var
+                        "--tw-ring-color": c.swatch,
+                      }}
                     >
                       <span
-                        className="h-3 w-3 rounded-full ring-1 ring-foreground/20"
+                        className="h-8 w-8 rounded-full shadow-md ring-1 ring-black/10"
                         style={{ backgroundColor: c.swatch }}
                       />
-                      {c.name}
+                      {active && (
+                        <Icon.Check className="absolute h-4 w-4 text-white drop-shadow" />
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
 
+            {/* Concepts + Difficulty */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-background/60 p-4 backdrop-blur">
                 <label htmlFor="num" className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   <span>Concepts</span>
-                  <span className="font-serif text-base normal-case tracking-normal text-foreground">{numConcepts}</span>
+                  <span className="rounded-full bg-foreground px-2 py-0.5 font-serif text-xs font-bold text-background">{numConcepts}</span>
                 </label>
                 <input
                   id="num"
@@ -825,116 +866,152 @@ function Index() {
                   disabled={loading}
                   className="accent-accent"
                 />
+                <div className="flex justify-between text-[9px] uppercase tracking-wider text-muted-foreground/60">
+                  <span>Sparse</span><span>Dense</span>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-background/60 p-4 backdrop-blur">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Difficulty
                 </span>
-                <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-input">
+                <div className="relative grid grid-cols-3 rounded-xl bg-secondary/70 p-1">
                   {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
                     <button
                       type="button"
                       key={d}
                       onClick={() => setDifficulty(d)}
                       disabled={loading}
-                      className={`px-2 py-2 text-[11px] font-semibold transition ${
+                      className={`relative z-10 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                         difficulty === d
-                          ? "bg-foreground text-background"
-                          : "bg-card text-foreground hover:bg-secondary"
+                          ? "bg-foreground text-background shadow-md"
+                          : "text-foreground/70 hover:text-foreground"
                       }`}
                     >
-                      {d}
+                      {d.slice(0, 3)}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                <span>Variants</span>
-                <span className="font-serif text-base normal-case tracking-normal text-foreground">
+            {/* Variants stepper */}
+            <div className="flex flex-col gap-2.5 rounded-2xl border border-border/70 bg-background/60 p-4 backdrop-blur">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Variants
+                </span>
+                <span className="font-serif text-sm text-foreground">
                   {variants} board{variants > 1 ? "s" : ""}
                 </span>
-              </span>
-              <div className="grid grid-cols-4 overflow-hidden rounded-xl border border-input">
+              </div>
+              <div className="grid grid-cols-4 gap-2">
                 {[1, 2, 3, 4].map((n) => (
                   <button
                     type="button"
                     key={n}
                     onClick={() => setVariants(n)}
                     disabled={loading}
-                    className={`px-2 py-2 text-[11px] font-semibold transition ${
+                    className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2.5 text-xs font-bold transition ${
                       variants === n
-                        ? "bg-foreground text-background"
-                        : "bg-card text-foreground hover:bg-secondary"
+                        ? "bg-foreground text-background shadow-lg shadow-foreground/20"
+                        : "bg-secondary/70 text-foreground/70 hover:bg-secondary hover:text-foreground"
                     }`}
                   >
-                    ×{n}
+                    <span className="font-serif text-lg leading-none">×{n}</span>
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground">
-                Draw multiple takes in one go — each streams into the preview and saves to your archive.
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                Draw multiple takes in one go — each streams into the preview.
               </p>
             </div>
 
+            {/* Generate CTA */}
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-foreground px-6 py-3.5 text-sm font-semibold text-background shadow-lg shadow-foreground/20 transition hover:bg-foreground/90 disabled:opacity-50"
+              className="group relative overflow-hidden rounded-2xl bg-foreground px-6 py-4 text-sm font-semibold text-background shadow-xl shadow-foreground/25 transition hover:shadow-2xl hover:shadow-foreground/30 disabled:opacity-60"
             >
-              {loading ? (
-                <>
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                  {batchProgress && batchProgress.total > 1
-                    ? `Drawing ${batchProgress.current} of ${batchProgress.total}…`
-                    : "Drawing…"}
-                </>
-              ) : (
-                <>
-                  <Icon.Sparkle className="h-4 w-4" /> Generate {variants > 1 ? `${variants} whiteboards` : "whiteboard"}
-                </>
-              )}
+              <span
+                aria-hidden
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-accent/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
+              />
+              <span className="relative inline-flex items-center justify-center gap-2">
+                {loading ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                    {batchProgress && batchProgress.total > 1
+                      ? `Drawing ${batchProgress.current} of ${batchProgress.total}…`
+                      : "Drawing…"}
+                  </>
+                ) : (
+                  <>
+                    <Icon.Sparkle className="h-4 w-4 transition group-hover:rotate-12" />
+                    Generate {variants > 1 ? `${variants} whiteboards` : "whiteboard"}
+                  </>
+                )}
+              </span>
             </button>
           </div>
 
           {/* Preview pane */}
           <div className="mx-auto flex w-full max-w-sm flex-col gap-3 lg:mx-0 lg:max-w-none">
-            <SectionLabel>Live preview</SectionLabel>
-            <div
-              aria-label="Generated whiteboard"
-              className="relative overflow-hidden rounded-2xl border border-border bg-secondary"
-              style={{ aspectRatio: "1024 / 1536" }}
-            >
-              {src ? (
-                <img
-                  src={src}
-                  alt={`Whiteboard study notes for ${topic}`}
-                  className="h-full w-full object-contain transition-[filter] duration-500"
-                  style={{ filter: isFinal ? "none" : "blur(16px)" }}
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center">
-                  <div className="font-serif text-base italic text-muted-foreground">
-                    {loading ? "Sketching your whiteboard…" : "Your whiteboard will appear here."}
-                  </div>
-                  {!loading && (
-                    <p className="text-[11px] text-muted-foreground/80">
-                      A4 portrait · marker on paper
-                    </p>
-                  )}
-                </div>
-              )}
+            <div className="flex items-center justify-between">
+              <SectionLabel>Live preview</SectionLabel>
               {loading && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-                  <div className="flex items-center gap-2 rounded-full bg-background/85 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ring-1 ring-border backdrop-blur">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-                    Rendering
-                  </div>
-                </div>
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                  Live
+                </span>
               )}
+            </div>
+            <div className="group relative rounded-3xl bg-gradient-to-br from-accent/20 via-transparent to-amber-note/30 p-[2px] shadow-2xl shadow-foreground/10">
+              <div
+                aria-label="Generated whiteboard"
+                className="relative overflow-hidden rounded-[calc(1.5rem-2px)] bg-secondary"
+                style={{ aspectRatio: "1024 / 1536" }}
+              >
+                {src ? (
+                  <img
+                    src={src}
+                    alt={`Whiteboard study notes for ${topic}`}
+                    className="h-full w-full object-contain transition-[filter] duration-500"
+                    style={{ filter: isFinal ? "none" : "blur(16px)" }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+                    <div className="relative grid h-14 w-14 place-items-center rounded-2xl bg-background shadow-inner ring-1 ring-border">
+                      <Icon.Sparkle className={`h-6 w-6 text-foreground/60 ${loading ? "animate-pulse" : ""}`} />
+                      {loading && (
+                        <span className="absolute inset-0 rounded-2xl ring-2 ring-accent/50 animate-pulse" />
+                      )}
+                    </div>
+                    <div className="font-serif text-base italic text-muted-foreground">
+                      {loading ? "Sketching your whiteboard…" : "Your whiteboard will appear here."}
+                    </div>
+                    {!loading && (
+                      <p className="text-[11px] text-muted-foreground/80">
+                        A4 portrait · marker on paper
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* Streaming shimmer overlay */}
+                {loading && (
+                  <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-y-0 -left-1/3 w-1/3 animate-[shimmer_2s_linear_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                  </div>
+                )}
+                {loading && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+                    <div className="flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] shadow-lg ring-1 ring-border backdrop-blur">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                      Rendering
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {src && isFinal && (
@@ -942,7 +1019,7 @@ function Index() {
                 <button
                   type="button"
                   onClick={() => downloadPng(src, topic)}
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card/80 px-4 py-2.5 text-xs font-semibold shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-md"
                 >
                   <Icon.Download className="h-3.5 w-3.5" /> PNG
                 </button>
@@ -951,7 +1028,7 @@ function Index() {
                   onClick={() =>
                     downloadPdf(src, topic).catch((e) => toast.error((e as Error).message))
                   }
-                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold hover:bg-secondary"
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card/80 px-4 py-2.5 text-xs font-semibold shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-md"
                 >
                   <Icon.Download className="h-3.5 w-3.5" /> PDF
                 </button>
@@ -980,12 +1057,12 @@ function Index() {
                             }
                           }}
                           disabled={!b.dataUrl}
-                          className={`group relative overflow-hidden rounded-lg border bg-secondary transition ${
+                          className={`group relative overflow-hidden rounded-xl border bg-secondary transition ${
                             isSelected
-                              ? "border-foreground ring-2 ring-accent"
+                              ? "border-foreground ring-2 ring-accent shadow-lg"
                               : isActive && b.status === "streaming"
                                 ? "border-accent ring-1 ring-accent/60"
-                                : "border-border hover:border-foreground/60"
+                                : "border-border hover:border-foreground/60 hover:-translate-y-0.5"
                           } ${!b.dataUrl ? "cursor-default" : ""}`}
                           style={{ aspectRatio: "1024 / 1536" }}
                           aria-label={`Variant ${i + 1} — ${b.status}`}
@@ -1009,15 +1086,13 @@ function Index() {
                             </div>
                           )}
 
-                          {/* Streaming shimmer bar */}
                           {b.status === "streaming" && (
                             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-foreground/10">
                               <div className="h-full w-1/3 animate-[shimmer_1.2s_linear_infinite] bg-accent" />
                             </div>
                           )}
 
-                          {/* Corner badge */}
-                          <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-background/85 px-1.5 py-0.5 font-serif text-[10px] font-bold ring-1 ring-border">
+                          <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-background/90 px-1.5 py-0.5 font-serif text-[10px] font-bold shadow-sm ring-1 ring-border">
                             ×{i + 1}
                             {b.status === "done" && (
                               <Icon.Check className="h-2.5 w-2.5 text-emerald-600" />
@@ -1027,8 +1102,7 @@ function Index() {
                             )}
                           </span>
 
-                          {/* Status footer */}
-                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-3 text-center text-[9px] font-semibold uppercase tracking-wider text-foreground/80">
+                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/95 to-transparent px-1.5 pb-1 pt-3 text-center text-[9px] font-semibold uppercase tracking-wider text-foreground/80">
                             {b.status === "done" ? "Ready" : b.status === "streaming" ? "Drawing" : "Queued"}
                           </span>
                         </button>
@@ -1038,6 +1112,7 @@ function Index() {
                 </div>
               );
             })()}
+          </div>
           </div>
         </form>
 
