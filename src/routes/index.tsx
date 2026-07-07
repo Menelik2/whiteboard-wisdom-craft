@@ -1038,9 +1038,10 @@ function Index() {
                 <button
                   type="button"
                   onClick={() => downloadPng(src, topic)}
+                  aria-label={`Download whiteboard for ${topic || "current topic"} as PNG`}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-card/80 px-4 py-2.5 text-xs font-semibold shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-md"
                 >
-                  <Icon.Download className="h-3.5 w-3.5" /> PNG
+                  <Icon.Download className="h-3.5 w-3.5" aria-hidden="true" /> PNG
                 </button>
                 <button
                   type="button"
