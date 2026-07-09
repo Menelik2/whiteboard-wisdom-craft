@@ -1131,7 +1131,14 @@ function Index() {
                           )}
 
                           {b.status === "streaming" && (
-                            <div className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-accent/40">
+                            <div
+                              className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-accent/40"
+                              role="progressbar"
+                              aria-label={`Variant ${i + 1} generation progress`}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={b.progress}
+                            >
                               <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-background/80">
                                 <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${b.progress}%` }} />
                                 <div className="absolute inset-y-0 left-0 w-1/3 animate-[shimmer_1.2s_linear_infinite] bg-gradient-to-r from-transparent via-background/70 to-transparent" />
