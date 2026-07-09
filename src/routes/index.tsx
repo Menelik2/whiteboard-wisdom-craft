@@ -24,6 +24,14 @@ type Notes = {
   sourceLabel: string;
 };
 
+type BatchSlot = {
+  id: string;
+  dataUrl: string | null;
+  status: "pending" | "streaming" | "done";
+  progress: number;
+  frameCount: number;
+};
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -106,7 +114,7 @@ function Index() {
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [batch, setBatch] = useState<{ id: string; dataUrl: string | null; status: "pending" | "streaming" | "done" }[]>([]);
+  const [batch, setBatch] = useState<BatchSlot[]>([]);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeVariant, setActiveVariant] = useState(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -209,6 +217,8 @@ function Index() {
       id: crypto.randomUUID(),
       dataUrl: null as string | null,
       status: "pending" as "pending" | "streaming" | "done",
+      progress: 0,
+      frameCount: 0,
     }));
     setSrc(null);
     setIsFinal(false);
@@ -228,7 +238,7 @@ function Index() {
 
     const updateSlot = (
       idx: number,
-      patch: Partial<{ dataUrl: string | null; status: "pending" | "streaming" | "done" }>,
+      patch: Partial<BatchSlot>,
     ) => {
       setBatch((prev) => {
         const next = prev.slice();
@@ -244,7 +254,7 @@ function Index() {
         setActiveVariant(i);
         setSrc(null);
         setIsFinal(false);
-        updateSlot(i, { status: "streaming" });
+        updateSlot(i, { status: "streaming", progress: 12, frameCount: 0 });
         await streamImage(
           "/api/generate-whiteboard",
           {
@@ -256,7 +266,12 @@ function Index() {
           },
           (dataUrl, final) => {
             setSrc(dataUrl);
-            updateSlot(i, { dataUrl, status: final ? "done" : "streaming" });
+            updateSlot(i, {
+              dataUrl,
+              status: final ? "done" : "streaming",
+              progress: final ? 100 : Math.min(88, 38 + completedCount * 0 + slots[i].frameCount * 18),
+              frameCount: slots[i].frameCount + 1,
+            });
             if (final) {
               setIsFinal(true);
               const item: HistoryItem = {
