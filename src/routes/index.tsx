@@ -24,6 +24,14 @@ type Notes = {
   sourceLabel: string;
 };
 
+type BatchSlot = {
+  id: string;
+  dataUrl: string | null;
+  status: "pending" | "streaming" | "done";
+  progress: number;
+  frameCount: number;
+};
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -106,7 +114,7 @@ function Index() {
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [batch, setBatch] = useState<{ id: string; dataUrl: string | null; status: "pending" | "streaming" | "done" }[]>([]);
+  const [batch, setBatch] = useState<BatchSlot[]>([]);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [activeVariant, setActiveVariant] = useState(0);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -209,6 +217,8 @@ function Index() {
       id: crypto.randomUUID(),
       dataUrl: null as string | null,
       status: "pending" as "pending" | "streaming" | "done",
+      progress: 0,
+      frameCount: 0,
     }));
     setSrc(null);
     setIsFinal(false);
@@ -225,10 +235,11 @@ function Index() {
 
     const notesPayload = overrideNotes ?? notes;
     let completedCount = 0;
+    const frameCounts = Array.from({ length: runs }, () => 0);
 
     const updateSlot = (
       idx: number,
-      patch: Partial<{ dataUrl: string | null; status: "pending" | "streaming" | "done" }>,
+      patch: Partial<BatchSlot>,
     ) => {
       setBatch((prev) => {
         const next = prev.slice();
@@ -244,7 +255,7 @@ function Index() {
         setActiveVariant(i);
         setSrc(null);
         setIsFinal(false);
-        updateSlot(i, { status: "streaming" });
+        updateSlot(i, { status: "streaming", progress: 12, frameCount: 0 });
         await streamImage(
           "/api/generate-whiteboard",
           {
@@ -255,8 +266,14 @@ function Index() {
             ...(notesPayload ? { notes: notesPayload } : {}),
           },
           (dataUrl, final) => {
+            frameCounts[i] += 1;
             setSrc(dataUrl);
-            updateSlot(i, { dataUrl, status: final ? "done" : "streaming" });
+            updateSlot(i, {
+              dataUrl,
+              status: final ? "done" : "streaming",
+              progress: final ? 100 : Math.min(88, 38 + frameCounts[i] * 18),
+              frameCount: frameCounts[i],
+            });
             if (final) {
               setIsFinal(true);
               const item: HistoryItem = {
@@ -1063,10 +1080,16 @@ function Index() {
                   <SectionLabel>
                     This batch · {doneCount} of {batch.length}{loading ? " · drawing…" : " · complete"}
                   </SectionLabel>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2" aria-label="Whiteboard variant progress">
                     {batch.map((b, i) => {
                       const isActive = i === activeVariant;
                       const isSelected = b.dataUrl != null && src === b.dataUrl;
+                      const statusLabel =
+                        b.status === "done"
+                          ? "Ready"
+                          : b.status === "streaming"
+                            ? `Generating ${b.progress}%`
+                            : "Queued";
                       return (
                         <button
                           type="button"
@@ -1086,7 +1109,7 @@ function Index() {
                                 : "border-border hover:border-foreground/60 hover:-translate-y-0.5"
                           } ${!b.dataUrl ? "cursor-default" : ""}`}
                           style={{ aspectRatio: "1024 / 1536" }}
-                          aria-label={`Variant ${i + 1} — ${b.status}`}
+                          aria-label={`Variant ${i + 1} — ${statusLabel}`}
                         >
                           {b.dataUrl ? (
                             <img
@@ -1108,23 +1131,39 @@ function Index() {
                           )}
 
                           {b.status === "streaming" && (
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-foreground/10">
-                              <div className="h-full w-1/3 animate-[shimmer_1.2s_linear_infinite] bg-accent" />
+                            <div
+                              className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-accent/40"
+                              role="progressbar"
+                              aria-label={`Variant ${i + 1} generation progress`}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={b.progress}
+                            >
+                              <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-background/80">
+                                <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${b.progress}%` }} />
+                                <div className="absolute inset-y-0 left-0 w-1/3 animate-[shimmer_1.2s_linear_infinite] bg-gradient-to-r from-transparent via-background/70 to-transparent" />
+                              </div>
                             </div>
                           )}
 
                           <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-background/90 px-1.5 py-0.5 font-serif text-[10px] font-bold shadow-sm ring-1 ring-border">
                             ×{i + 1}
                             {b.status === "done" && (
-                              <Icon.Check className="h-2.5 w-2.5 text-emerald-600" />
+                              <Icon.Check className="h-2.5 w-2.5 text-accent" />
                             )}
                             {b.status === "streaming" && (
                               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
                             )}
                           </span>
 
+                          {isActive && b.status === "streaming" && (
+                            <span className="absolute right-1 top-1 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-accent-foreground shadow-sm">
+                              Now
+                            </span>
+                          )}
+
                           <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/95 to-transparent px-1.5 pb-1 pt-3 text-center text-[9px] font-semibold uppercase tracking-wider text-foreground/80">
-                            {b.status === "done" ? "Ready" : b.status === "streaming" ? "Drawing" : "Queued"}
+                            {statusLabel}
                           </span>
                         </button>
                       );
