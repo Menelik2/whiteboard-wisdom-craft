@@ -218,6 +218,10 @@ function Index() {
       toast.error("Pick at least one marker color");
       return;
     }
+    if (!hasKey) {
+      toast.error("Add your Gemini API key in the sidebar first");
+      return;
+    }
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
