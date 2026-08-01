@@ -377,13 +377,15 @@ function Index() {
               </p>
             </div>
           </div>
-          <a
-            href="#workspace"
-            className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-foreground/80 hover:bg-secondary sm:px-3.5 sm:text-xs"
-          >
-            <span className="hidden sm:inline">New summary →</span>
-            <span className="sm:hidden">New →</span>
-          </a>
+          <div className="flex shrink-0 items-center gap-2">
+            <GeminiKeySidebar />
+            <a
+              href="#workspace"
+              className="hidden shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-foreground/80 hover:bg-secondary sm:inline-block sm:px-3.5 sm:text-xs"
+            >
+              New summary →
+            </a>
+          </div>
         </div>
       </header>
 
