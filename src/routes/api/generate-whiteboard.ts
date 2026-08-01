@@ -14,6 +14,7 @@ type Body = {
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   notes?: Notes;
+  apiKey?: string;
 };
 
 const buildPrompt = ({
