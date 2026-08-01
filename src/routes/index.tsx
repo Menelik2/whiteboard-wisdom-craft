@@ -13,6 +13,8 @@ import {
 } from "@/lib/whiteboard-utils";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { GeminiKeySidebar } from "@/components/GeminiKeySidebar";
+import { useGeminiKey } from "@/lib/gemini-key";
 
 type KeyPoint = { text: string; sources: number[] };
 type KeyTerm = { term: string; definition: string; sources: number[] };
@@ -105,6 +107,7 @@ function SectionLabel({ children, accent }: { children: React.ReactNode; accent?
 }
 
 function Index() {
+  const { key: geminiKey, hasKey } = useGeminiKey();
   const [topic, setTopic] = useState("");
   const [colors, setColors] = useState<string[]>(["black", "blue", "green", "orange", "red"]);
   const [numConcepts, setNumConcepts] = useState(12);
@@ -162,15 +165,22 @@ function Index() {
       toast.error("Select at least one passage");
       return;
     }
+    if (!hasKey) {
+      toast.error("Add your Gemini API key in the sidebar first");
+      return;
+    }
     setSummarizing(true);
     setNotes(null);
     try {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segments: selectedSegments, filename: docName }),
+        body: JSON.stringify({ segments: selectedSegments, filename: docName, apiKey: geminiKey }),
       });
-      if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || `Summarize failed (${res.status})`);
+      }
       const data = (await res.json()) as Notes;
       setNotes(data);
       if (data.topic && !topic.trim()) setTopic(data.topic);
@@ -206,6 +216,10 @@ function Index() {
     }
     if (colors.length === 0) {
       toast.error("Pick at least one marker color");
+      return;
+    }
+    if (!hasKey) {
+      toast.error("Add your Gemini API key in the sidebar first");
       return;
     }
     abortRef.current?.abort();
@@ -263,6 +277,7 @@ function Index() {
             markerColors: colors,
             numConcepts,
             difficulty,
+            apiKey: geminiKey,
             ...(notesPayload ? { notes: notesPayload } : {}),
           },
           (dataUrl, final) => {
@@ -362,13 +377,15 @@ function Index() {
               </p>
             </div>
           </div>
-          <a
-            href="#workspace"
-            className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-foreground/80 hover:bg-secondary sm:px-3.5 sm:text-xs"
-          >
-            <span className="hidden sm:inline">New summary →</span>
-            <span className="sm:hidden">New →</span>
-          </a>
+          <div className="flex shrink-0 items-center gap-2">
+            <GeminiKeySidebar />
+            <a
+              href="#workspace"
+              className="hidden shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-foreground/80 hover:bg-secondary sm:inline-block sm:px-3.5 sm:text-xs"
+            >
+              New summary →
+            </a>
+          </div>
         </div>
       </header>
 
