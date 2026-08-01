@@ -107,6 +107,7 @@ function SectionLabel({ children, accent }: { children: React.ReactNode; accent?
 }
 
 function Index() {
+  const { key: geminiKey, hasKey } = useGeminiKey();
   const [topic, setTopic] = useState("");
   const [colors, setColors] = useState<string[]>(["black", "blue", "green", "orange", "red"]);
   const [numConcepts, setNumConcepts] = useState(12);
