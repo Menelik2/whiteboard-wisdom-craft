@@ -165,15 +165,22 @@ function Index() {
       toast.error("Select at least one passage");
       return;
     }
+    if (!hasKey) {
+      toast.error("Add your Gemini API key in the sidebar first");
+      return;
+    }
     setSummarizing(true);
     setNotes(null);
     try {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segments: selectedSegments, filename: docName }),
+        body: JSON.stringify({ segments: selectedSegments, filename: docName, apiKey: geminiKey }),
       });
-      if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || `Summarize failed (${res.status})`);
+      }
       const data = (await res.json()) as Notes;
       setNotes(data);
       if (data.topic && !topic.trim()) setTopic(data.topic);
