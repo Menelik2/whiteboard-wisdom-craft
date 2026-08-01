@@ -13,6 +13,8 @@ import {
 } from "@/lib/whiteboard-utils";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { GeminiKeySidebar } from "@/components/GeminiKeySidebar";
+import { useGeminiKey } from "@/lib/gemini-key";
 
 type KeyPoint = { text: string; sources: number[] };
 type KeyTerm = { term: string; definition: string; sources: number[] };
