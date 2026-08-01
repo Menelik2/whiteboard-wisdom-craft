@@ -1130,41 +1130,28 @@ function Index() {
                             </div>
                           )}
 
-                          {b.status === "streaming" && (
+                          {b.status !== "done" && (
                             <div
-                              className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-accent/40"
+                              className="pointer-events-none absolute inset-x-0 bottom-0"
                               role="progressbar"
                               aria-label={`Variant ${i + 1} generation progress`}
                               aria-valuemin={0}
                               aria-valuemax={100}
                               aria-valuenow={b.progress}
                             >
-                              <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-background/80">
-                                <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${b.progress}%` }} />
-                                <div className="absolute inset-y-0 left-0 w-1/3 animate-[shimmer_1.2s_linear_infinite] bg-gradient-to-r from-transparent via-background/70 to-transparent" />
+                              <div className="h-1 w-full overflow-hidden bg-foreground/10">
+                                <div
+                                  className="h-full bg-accent transition-[width] duration-500"
+                                  style={{ width: `${b.status === "streaming" ? b.progress : 0}%` }}
+                                />
                               </div>
                             </div>
                           )}
 
-                          <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-background/90 px-1.5 py-0.5 font-serif text-[10px] font-bold shadow-sm ring-1 ring-border">
+                          <span className="absolute left-1 top-1 rounded-full bg-background/90 px-1.5 py-0.5 font-serif text-[10px] font-bold shadow-sm ring-1 ring-border">
                             ×{i + 1}
-                            {b.status === "done" && (
-                              <Icon.Check className="h-2.5 w-2.5 text-accent" />
-                            )}
-                            {b.status === "streaming" && (
-                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-                            )}
                           </span>
 
-                          {isActive && b.status === "streaming" && (
-                            <span className="absolute right-1 top-1 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-accent-foreground shadow-sm">
-                              Now
-                            </span>
-                          )}
-
-                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/95 to-transparent px-1.5 pb-1 pt-3 text-center text-[9px] font-semibold uppercase tracking-wider text-foreground/80">
-                            {statusLabel}
-                          </span>
                         </button>
                       );
                     })}
