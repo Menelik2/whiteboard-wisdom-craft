@@ -221,174 +221,347 @@ function Index() {
     setHistory(loadHistory());
   };
 
+  const stepBadge = (n: number) => (
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+      {n}
+    </span>
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Toaster />
-      <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-10">
-        <header className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Whiteboard Notes AI
-          </h1>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            Type any topic — get a detailed A4 whiteboard study-notes infographic.
-          </p>
-        </header>
 
-        <section className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-card/50 p-4 sm:p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-semibold">Summarize a document</h2>
-            <p className="text-xs text-muted-foreground">
-              Upload PDF, DOCX, PPTX, or TXT — get structured study notes and use them as the whiteboard topic.
-            </p>
+      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
+        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:flex sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-base text-primary-foreground">
+              W
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold sm:text-lg">Whiteboard Notes AI</h1>
+              <p className="hidden text-xs text-muted-foreground sm:block">
+                Turn any topic or document into study notes
+              </p>
+            </div>
           </div>
-          <label
-            className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-input bg-background px-4 py-6 text-center text-sm transition hover:bg-accent ${
-              extracting || summarizing ? "opacity-60" : ""
-            }`}
+          <button
+            type="button"
+            onClick={() => !loading && generate()}
+            disabled={loading}
+            className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
           >
-            <input
-              type="file"
-              accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
-              className="hidden"
-              disabled={extracting || summarizing}
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                e.target.value = "";
-                handleFile(f);
-              }}
-            />
-            <span className="font-medium">
-              {extracting
-                ? "Extracting text…"
-                : docName
-                  ? `Replace: ${docName}`
-                  : "Choose a document"}
-            </span>
-            <span className="text-xs text-muted-foreground">PDF · DOCX · PPTX · TXT</span>
-          </label>
+            {loading ? "Generating…" : "Generate"}
+          </button>
+        </div>
+      </header>
 
-          {segments.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Extracted preview
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedIdx.size} of {segments.length} {segments[0].label.toLowerCase()}
-                    {segments.length === 1 ? "" : "s"} selected
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIdx(new Set(segments.map((s) => s.index)))}
-                    className="rounded border border-input bg-background px-2 py-1 text-[11px] hover:bg-accent"
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIdx(new Set())}
-                    className="rounded border border-input bg-background px-2 py-1 text-[11px] hover:bg-accent"
-                  >
-                    None
-                  </button>
-                </div>
+      <main className="mx-auto grid max-w-7xl grid-cols-1 items-start gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:py-8">
+        {/* ---------------- LEFT: controls ---------------- */}
+        <div className="flex flex-col gap-5">
+          {/* Step 1 — topic */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!loading) generate();
+            }}
+            className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
+          >
+            <div className="flex items-center gap-3">
+              {stepBadge(1)}
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold">What should the board explain?</h2>
+                <p className="text-xs text-muted-foreground">Type a topic, or upload a document in step 3.</p>
               </div>
-              <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                {segments.map((s) => {
-                  const active = selectedIdx.has(s.index);
-                  return (
-                    <li key={s.index}>
-                      <label
-                        className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 transition ${
-                          active ? "border-foreground bg-accent/30" : "border-border bg-background hover:bg-accent/30"
+            </div>
+
+            <input
+              id="topic"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. Photosynthesis, Newton's Laws, SQL Joins…"
+              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none ring-ring/30 transition focus:border-primary focus:ring-2"
+              disabled={loading}
+            />
+
+            <details className="group rounded-xl border border-border bg-muted/40 p-3" open>
+              <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  {stepBadge(2)} Style options
+                </span>
+                <span className="text-xs text-muted-foreground group-open:hidden">Show</span>
+                <span className="hidden text-xs text-muted-foreground group-open:inline">Hide</span>
+              </summary>
+
+              <div className="mt-4 flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Marker colors
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {COLOR_PRESETS.map((c) => {
+                      const active = colors.includes(c.value);
+                      return (
+                        <button
+                          type="button"
+                          key={c.value}
+                          onClick={() => toggleColor(c.value)}
+                          disabled={loading}
+                          className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                            active
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-input bg-background text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          <span
+                            className="h-3 w-3 rounded-full ring-1 ring-border"
+                            style={{ backgroundColor: c.swatch }}
+                          />
+                          {c.name}
+                          {active && <span className="text-primary">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="num" className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>Number of concepts</span>
+                    <span className="text-sm font-bold text-primary">{numConcepts}</span>
+                  </label>
+                  <input
+                    id="num"
+                    type="range"
+                    min={5}
+                    max={20}
+                    value={numConcepts}
+                    onChange={(e) => setNumConcepts(Number(e.target.value))}
+                    disabled={loading}
+                    className="w-full accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Fewer, simpler</span>
+                    <span>More, denser</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Difficulty
+                  </span>
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-background p-1 ring-1 ring-inset ring-border">
+                    {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
+                      <button
+                        type="button"
+                        key={d}
+                        onClick={() => setDifficulty(d)}
+                        disabled={loading}
+                        className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                          difficulty === d
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-accent"
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={active}
-                          onChange={() => toggleSegment(s.index)}
-                          className="mt-1 accent-foreground"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium">
-                            {s.label} {s.index} · {s.title}
-                          </p>
-                          <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap text-[11px] text-muted-foreground">
-                            {s.text || <em>(no text)</em>}
-                          </p>
-                        </div>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-              <button
-                type="button"
-                onClick={summarizeSelected}
-                disabled={summarizing || selectedIdx.size === 0}
-                className="self-start rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-              >
-                {summarizing ? "Summarizing…" : `Summarize ${selectedIdx.size} selected`}
-              </button>
-            </div>
-          )}
-
-          {notes && (
-            <article className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-background to-accent/20 p-5 text-sm shadow-sm sm:p-6">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-accent/30 blur-3xl"
-              />
-
-              <div className="relative flex flex-col gap-5">
-                <header className="flex flex-col gap-2">
-                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    AI Summary
-                  </span>
-                  <h3 className="text-xl font-bold leading-tight tracking-tight sm:text-2xl">
-                    {notes.topic}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{notes.summary}</p>
-                  <div className="flex flex-wrap gap-3 pt-1 text-[11px] text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="font-semibold text-foreground">{notes.keyPoints?.length ?? 0}</span>
-                      key points
-                    </span>
-                    <span className="opacity-40">·</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="font-semibold text-foreground">{notes.keyTerms?.length ?? 0}</span>
-                      key terms
-                    </span>
+                        {d}
+                      </button>
+                    ))}
                   </div>
-                </header>
+                </div>
+              </div>
+            </details>
 
-                {notes.keyPoints?.length > 0 && (
-                  <section className="flex flex-col gap-2">
-                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Key points
-                    </h4>
-                    <ul className="flex flex-col gap-2">
-                      {notes.keyPoints.map((p, i) => (
-                        <li
-                          key={i}
-                          className="group flex gap-3 rounded-lg border border-border/60 bg-background/70 p-3 backdrop-blur transition hover:border-foreground/30 hover:bg-background"
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+            >
+              {loading ? "Generating…" : "Generate whiteboard"}
+            </button>
+          </form>
+
+          {/* Step 3 — document */}
+          <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <div className="flex items-center gap-3">
+              {stepBadge(3)}
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold">Optional: use a document</h2>
+                <p className="text-xs text-muted-foreground">
+                  PDF, DOCX, PPTX or TXT → structured notes → whiteboard.
+                </p>
+              </div>
+            </div>
+
+            <label
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-input bg-background px-4 py-8 text-center text-sm transition hover:border-primary hover:bg-primary/5 ${
+                extracting || summarizing ? "opacity-60" : ""
+              }`}
+            >
+              <input
+                type="file"
+                accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
+                className="hidden"
+                disabled={extracting || summarizing}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  e.target.value = "";
+                  handleFile(f);
+                }}
+              />
+              <span className="font-semibold">
+                {extracting
+                  ? "Extracting text…"
+                  : docName
+                    ? `Replace: ${docName}`
+                    : "Choose a document"}
+              </span>
+              <span className="text-xs text-muted-foreground">PDF · DOCX · PPTX · TXT</span>
+            </label>
+
+            {segments.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Extracted preview
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedIdx.size} of {segments.length} {segments[0].label.toLowerCase()}
+                      {segments.length === 1 ? "" : "s"} selected
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIdx(new Set(segments.map((s) => s.index)))}
+                      className="rounded-lg border border-input bg-background px-2.5 py-1 text-[11px] font-medium hover:bg-accent"
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIdx(new Set())}
+                      className="rounded-lg border border-input bg-background px-2.5 py-1 text-[11px] font-medium hover:bg-accent"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                  {segments.map((s) => {
+                    const active = selectedIdx.has(s.index);
+                    return (
+                      <li key={s.index}>
+                        <label
+                          className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition ${
+                            active
+                              ? "border-primary bg-primary/5"
+                              : "border-border bg-background hover:bg-accent/40"
+                          }`}
                         >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                            {i + 1}
-                          </span>
+                          <input
+                            type="checkbox"
+                            checked={active}
+                            onChange={() => toggleSegment(s.index)}
+                            className="mt-1 accent-primary"
+                          />
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm leading-snug">{p.text}</p>
-                            {p.sources?.length > 0 && (
+                            <p className="truncate text-xs font-semibold">
+                              {s.label} {s.index} · {s.title}
+                            </p>
+                            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">
+                              {s.text || <em>(no text)</em>}
+                            </p>
+                          </div>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  onClick={summarizeSelected}
+                  disabled={summarizing || selectedIdx.size === 0}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {summarizing ? "Summarizing…" : `Summarize ${selectedIdx.size} selected`}
+                </button>
+              </div>
+            )}
+
+            {notes && (
+              <article className="relative overflow-hidden rounded-2xl border border-border bg-background p-5 text-sm">
+                <div className="relative flex flex-col gap-5">
+                  <header className="flex flex-col gap-2">
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      AI Summary
+                    </span>
+                    <h3 className="text-lg font-bold leading-tight sm:text-xl">{notes.topic}</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{notes.summary}</p>
+                    <div className="flex flex-wrap gap-3 pt-1 text-[11px] text-muted-foreground">
+                      <span>
+                        <span className="font-semibold text-foreground">{notes.keyPoints?.length ?? 0}</span> key points
+                      </span>
+                      <span className="opacity-40">·</span>
+                      <span>
+                        <span className="font-semibold text-foreground">{notes.keyTerms?.length ?? 0}</span> key terms
+                      </span>
+                    </div>
+                  </header>
+
+                  {notes.keyPoints?.length > 0 && (
+                    <section className="flex flex-col gap-2">
+                      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Key points
+                      </h4>
+                      <ul className="flex flex-col gap-2">
+                        {notes.keyPoints.map((p, i) => (
+                          <li
+                            key={i}
+                            className="flex gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-primary/40"
+                          >
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm leading-snug">{p.text}</p>
+                              {p.sources?.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1">
+                                  {p.sources.map((n) => (
+                                    <span
+                                      key={n}
+                                      className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                    >
+                                      {notes.sourceLabel} {n}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  {notes.keyTerms?.length > 0 && (
+                    <section className="flex flex-col gap-2">
+                      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Key terms
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {notes.keyTerms.map((t, i) => (
+                          <div
+                            key={i}
+                            className="rounded-xl border border-border bg-card p-3 transition hover:border-primary/40"
+                          >
+                            <p className="text-sm font-semibold">{t.term}</p>
+                            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                              {t.definition}
+                            </p>
+                            {t.sources?.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
-                                {p.sources.map((n) => (
+                                {t.sources.map((n) => (
                                   <span
                                     key={n}
                                     className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
@@ -399,309 +572,197 @@ function Index() {
                               </div>
                             )}
                           </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
-                {notes.keyTerms?.length > 0 && (
-                  <section className="flex flex-col gap-2">
-                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Key terms
-                    </h4>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {notes.keyTerms.map((t, i) => (
-                        <div
-                          key={i}
-                          className="rounded-lg border border-border/60 bg-background/70 p-3 backdrop-blur transition hover:border-foreground/30"
-                        >
-                          <p className="text-sm font-semibold">{t.term}</p>
-                          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
-                            {t.definition}
-                          </p>
-                          {t.sources?.length > 0 && (
-                            <div className="mt-1.5 flex flex-wrap gap-1">
-                              {t.sources.map((n) => (
-                                <span
-                                  key={n}
-                                  className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-                                >
-                                  {notes.sourceLabel} {n}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTopic(notes.topic);
+                        if (!loading) generate(notes);
+                      }}
+                      disabled={loading}
+                      className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      Generate whiteboard from these notes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const lines = [
+                          `# ${notes.topic}`,
+                          "",
+                          notes.summary,
+                          "",
+                          "## Key Points",
+                          ...notes.keyPoints.map(
+                            (p) =>
+                              `- ${p.text}${p.sources?.length ? ` [${notes.sourceLabel} ${p.sources.join(", ")}]` : ""}`,
+                          ),
+                          "",
+                          "## Key Terms",
+                          ...notes.keyTerms.map(
+                            (t) =>
+                              `- **${t.term}**: ${t.definition}${t.sources?.length ? ` [${notes.sourceLabel} ${t.sources.join(", ")}]` : ""}`,
+                          ),
+                        ].join("\n");
+                        navigator.clipboard.writeText(lines).then(
+                          () => toast.success("Notes copied"),
+                          () => toast.error("Copy failed"),
+                        );
+                      }}
+                      className="rounded-full border border-input bg-card px-4 py-2 text-xs font-semibold transition hover:bg-accent"
+                    >
+                      Copy notes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          downloadNotesPdf(notes);
+                          toast.success("PDF downloaded");
+                        } catch (e) {
+                          console.error(e);
+                          toast.error("PDF download failed");
+                        }
+                      }}
+                      className="rounded-full border border-input bg-card px-4 py-2 text-xs font-semibold transition hover:bg-accent"
+                    >
+                      Download notes PDF
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )}
+          </section>
+        </div>
 
-                <div className="flex flex-wrap gap-2 pt-1">
+        {/* ---------------- RIGHT: preview ---------------- */}
+        <div className="flex flex-col gap-4 lg:sticky lg:top-20">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 pb-3 sm:flex sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold">Your whiteboard</h2>
+                <p className="truncate text-xs text-muted-foreground">
+                  {loading
+                    ? "Drawing… previews sharpen as it finishes"
+                    : src
+                      ? topic || "Ready"
+                      : "Nothing generated yet"}
+                </p>
+              </div>
+              {src && isFinal && (
+                <div className="flex shrink-0 gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setTopic(notes.topic);
-                      if (!loading) generate(notes);
-                    }}
-                    disabled={loading}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
+                    onClick={() => downloadPng(src, topic)}
+                    className="rounded-full border border-input bg-background px-3 py-1.5 text-xs font-semibold transition hover:bg-accent"
                   >
-                    ✨ Generate whiteboard from these notes
+                    PNG
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      const lines = [
-                        `# ${notes.topic}`,
-                        "",
-                        notes.summary,
-                        "",
-                        "## Key Points",
-                        ...notes.keyPoints.map(
-                          (p) =>
-                            `- ${p.text}${p.sources?.length ? ` [${notes.sourceLabel} ${p.sources.join(", ")}]` : ""}`,
-                        ),
-                        "",
-                        "## Key Terms",
-                        ...notes.keyTerms.map(
-                          (t) =>
-                            `- **${t.term}**: ${t.definition}${t.sources?.length ? ` [${notes.sourceLabel} ${t.sources.join(", ")}]` : ""}`,
-                        ),
-                      ].join("\n");
-                      navigator.clipboard.writeText(lines).then(
-                        () => toast.success("Notes copied"),
-                        () => toast.error("Copy failed"),
-                      );
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
+                    onClick={() =>
+                      downloadPdf(src, topic).catch((e) => toast.error((e as Error).message))
+                    }
+                    className="rounded-full border border-input bg-background px-3 py-1.5 text-xs font-semibold transition hover:bg-accent"
                   >
-                    Copy notes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        downloadNotesPdf(notes);
-                        toast.success("PDF downloaded");
-                      } catch (e) {
-                        console.error(e);
-                        toast.error("PDF download failed");
-                      }
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-input bg-background/70 px-4 py-2 text-xs font-semibold backdrop-blur transition hover:bg-accent"
-                  >
-                    Download PDF
+                    PDF
                   </button>
                 </div>
-              </div>
-            </article>
-          )}
-        </section>
-
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!loading) generate();
-          }}
-          className="flex flex-col gap-5 rounded-lg border border-border bg-card p-4 sm:p-6"
-        >
-          <div className="flex flex-col gap-2">
-            <label htmlFor="topic" className="text-sm font-medium">
-              Topic
-            </label>
-            <input
-              id="topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Photosynthesis, Newton's Laws, SQL Joins…"
-              className="rounded-md border border-input bg-background px-4 py-3 text-sm shadow-sm outline-none ring-ring/20 transition focus:ring-2"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Marker colors</span>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_PRESETS.map((c) => {
-                const active = colors.includes(c.value);
-                return (
-                  <button
-                    type="button"
-                    key={c.value}
-                    onClick={() => toggleColor(c.value)}
-                    disabled={loading}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                      active
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-input bg-background text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <span
-                      className="h-3 w-3 rounded-full ring-1 ring-border"
-                      style={{ backgroundColor: c.swatch }}
-                    />
-                    {c.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="num" className="flex items-center justify-between text-sm font-medium">
-                <span>Number of concepts</span>
-                <span className="text-muted-foreground">{numConcepts}</span>
-              </label>
-              <input
-                id="num"
-                type="range"
-                min={5}
-                max={20}
-                value={numConcepts}
-                onChange={(e) => setNumConcepts(Number(e.target.value))}
-                disabled={loading}
-                className="accent-foreground"
-              />
+              )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Difficulty</span>
-              <div className="grid grid-cols-3 overflow-hidden rounded-md border border-input">
-                {(["Beginner", "Intermediate", "Advanced"] as Difficulty[]).map((d) => (
-                  <button
-                    type="button"
-                    key={d}
-                    onClick={() => setDifficulty(d)}
-                    disabled={loading}
-                    className={`px-2 py-2 text-xs font-medium transition ${
-                      difficulty === d
-                        ? "bg-foreground text-background"
-                        : "bg-background text-foreground hover:bg-accent"
-                    }`}
+            <section
+              aria-label="Generated whiteboard"
+              className="relative w-full overflow-hidden rounded-xl border border-border bg-muted"
+              style={{ aspectRatio: "1024 / 1536", maxHeight: "70vh" }}
+            >
+              {src ? (
+                <img
+                  src={src}
+                  alt={`Whiteboard study notes for ${topic}`}
+                  className="h-full w-full object-contain transition-[filter] duration-500"
+                  style={{ filter: isFinal ? "none" : "blur(16px)" }}
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center">
+                  <p className="text-sm font-medium">
+                    {loading ? "Drawing your whiteboard…" : "Your whiteboard will appear here"}
+                  </p>
+                  <p className="max-w-xs text-xs text-muted-foreground">
+                    Enter a topic on the left and press Generate. It usually takes under a minute.
+                  </p>
+                </div>
+              )}
+            </section>
+          </div>
+
+          {history.length > 0 && (
+            <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+              <h2 className="text-sm font-semibold">Recent boards</h2>
+              <div className="grid max-h-[420px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
+                {history.map((item) => (
+                  <article
+                    key={item.id}
+                    className="group flex flex-col overflow-hidden rounded-xl border border-border bg-background"
                   >
-                    {d}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => restoreFromHistory(item)}
+                      className="block"
+                      aria-label={`Open ${item.topic}`}
+                    >
+                      <img
+                        src={item.dataUrl}
+                        alt={item.topic}
+                        className="aspect-[1024/1536] w-full object-cover transition group-hover:opacity-90"
+                      />
+                    </button>
+                    <div className="flex flex-col gap-2 p-2">
+                      <p className="line-clamp-2 text-xs font-semibold" title={item.topic}>
+                        {item.topic}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {item.difficulty} · {item.numConcepts} concepts
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          onClick={() => downloadPng(item.dataUrl, item.topic)}
+                          className="rounded-md border border-input bg-card px-2 py-1 text-[10px] font-medium hover:bg-accent"
+                        >
+                          PNG
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadPdf(item.dataUrl, item.topic).catch((e) =>
+                              toast.error((e as Error).message),
+                            )
+                          }
+                          className="rounded-md border border-input bg-card px-2 py-1 text-[10px] font-medium hover:bg-accent"
+                        >
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item.id)}
+                          className="ml-auto rounded-md border border-input bg-card px-2 py-1 text-[10px] font-medium text-destructive hover:bg-accent"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </article>
                 ))}
               </div>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-          >
-            {loading ? "Generating…" : "Generate whiteboard"}
-          </button>
-        </form>
-
-        <section
-          aria-label="Generated whiteboard"
-          className="relative mx-auto w-full overflow-hidden rounded-lg border border-border bg-muted"
-          style={{ aspectRatio: "1024 / 1536" }}
-        >
-          {src ? (
-            <img
-              src={src}
-              alt={`Whiteboard study notes for ${topic}`}
-              className="h-full w-full object-contain transition-[filter] duration-500"
-              style={{ filter: isFinal ? "none" : "blur(16px)" }}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-              {loading
-                ? "Drawing your whiteboard…"
-                : "Your whiteboard will appear here."}
-            </div>
+            </section>
           )}
-        </section>
-
-        {src && isFinal && (
-          <div className="flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => downloadPng(src, topic)}
-              className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent"
-            >
-              Download PNG
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                downloadPdf(src, topic).catch((e) => toast.error((e as Error).message))
-              }
-              className="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition hover:bg-accent"
-            >
-              Download PDF
-            </button>
-          </div>
-        )}
-
-        {history.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">History</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {history.map((item) => (
-                <article
-                  key={item.id}
-                  className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card"
-                >
-                  <button
-                    type="button"
-                    onClick={() => restoreFromHistory(item)}
-                    className="block"
-                    aria-label={`Open ${item.topic}`}
-                  >
-                    <img
-                      src={item.dataUrl}
-                      alt={item.topic}
-                      className="aspect-[1024/1536] w-full object-cover transition group-hover:opacity-90"
-                    />
-                  </button>
-                  <div className="flex flex-col gap-2 p-2">
-                    <p className="line-clamp-2 text-xs font-medium" title={item.topic}>
-                      {item.topic}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {item.difficulty} · {item.numConcepts} concepts
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      <button
-                        type="button"
-                        onClick={() => downloadPng(item.dataUrl, item.topic)}
-                        className="rounded border border-input bg-background px-2 py-1 text-[10px] font-medium hover:bg-accent"
-                      >
-                        PNG
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          downloadPdf(item.dataUrl, item.topic).catch((e) =>
-                            toast.error((e as Error).message),
-                          )
-                        }
-                        className="rounded border border-input bg-background px-2 py-1 text-[10px] font-medium hover:bg-accent"
-                      >
-                        PDF
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item.id)}
-                        className="ml-auto rounded border border-input bg-background px-2 py-1 text-[10px] font-medium text-destructive hover:bg-accent"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        </div>
       </main>
     </div>
   );
