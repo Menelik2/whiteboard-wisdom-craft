@@ -235,7 +235,7 @@ function Index() {
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:flex sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-base text-primary-foreground">
-              ✎
+              W
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold sm:text-lg">Whiteboard Notes AI</h1>
@@ -407,7 +407,6 @@ function Index() {
                   handleFile(f);
                 }}
               />
-              <span className="text-2xl">📄</span>
               <span className="font-semibold">
                 {extracting
                   ? "Extracting text…"
@@ -588,7 +587,7 @@ function Index() {
                       disabled={loading}
                       className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
                     >
-                      ✨ Generate whiteboard from these notes
+                      Generate whiteboard from these notes
                     </button>
                     <button
                       type="button"
@@ -691,7 +690,6 @@ function Index() {
                 />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-6 text-center">
-                  <span className="text-3xl">🧑‍🏫</span>
                   <p className="text-sm font-medium">
                     {loading ? "Drawing your whiteboard…" : "Your whiteboard will appear here"}
                   </p>
