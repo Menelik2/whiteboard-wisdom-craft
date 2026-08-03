@@ -1,27 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 type Segment = { index: number; label: string; title: string; text: string };
-type Body = { segments?: Segment[]; filename?: string; apiKey?: string };
+type Body = { segments?: Segment[]; filename?: string };
 
 export const Route = createFileRoute("/api/summarize")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { segments, filename, apiKey } = (await request.json()) as Body;
+        const { segments, filename } = (await request.json()) as Body;
         if (!segments || segments.length === 0) {
           return new Response(JSON.stringify({ error: "No segments provided" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });
         }
-        const key = typeof apiKey === "string" ? apiKey.trim() : "";
+        const key = process.env.LOVABLE_API_KEY;
         if (!key) {
-          return new Response(
-            JSON.stringify({ error: "Add your Gemini API key in the sidebar first" }),
-            { status: 400, headers: { "Content-Type": "application/json" } },
-          );
+          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
         }
-
 
         const label = segments[0].label;
         // Build a labelled document with explicit citation markers.
@@ -38,96 +37,87 @@ export const Route = createFileRoute("/api/summarize")({
           total += block.length;
         }
 
-        const schema = {
-          type: "object",
-          properties: {
-            topic: { type: "string", description: "2-6 word topic for the whiteboard title." },
-            summary: { type: "string", description: "2-3 sentence overview." },
-            keyPoints: {
-              type: "array",
-              description: "8-14 concise bullet points with citations.",
-              items: {
-                type: "object",
-                properties: {
-                  text: { type: "string" },
-                  sources: {
-                    type: "array",
-                    items: { type: "integer" },
-                    description: `${label} numbers this point came from.`,
-                  },
-                },
-                required: ["text", "sources"],
-              },
-            },
-            keyTerms: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  term: { type: "string" },
-                  definition: { type: "string" },
-                  sources: { type: "array", items: { type: "integer" } },
-                },
-                required: ["term", "definition", "sources"],
-              },
-            },
+        const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
           },
-          required: ["topic", "summary", "keyPoints", "keyTerms"],
-        };
-
-        const upstream = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-          {
-            method: "POST",
-            headers: {
-              "x-goog-api-key": key,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              systemInstruction: {
-                parts: [
-                  {
-                    text: `You turn study documents into concise structured notes. Each point and key term MUST cite which ${label.toLowerCase()}(s) it came from using the sources array (numbers only).`,
-                  },
-                ],
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: `You turn study documents into concise structured notes. Each point and key term MUST cite which ${label.toLowerCase()}(s) it came from using the sources array (numbers only). Always reply by calling the provided function.`,
               },
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    {
-                      text: `Document${filename ? ` (${filename})` : ""} — segments are marked like "[${label} N]":\n\n${doc}`,
+              {
+                role: "user",
+                content: `Document${filename ? ` (${filename})` : ""} — segments are marked like "[${label} N]":\n\n${doc}`,
+              },
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "build_notes",
+                  description: "Return structured study notes with source citations.",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      topic: { type: "string", description: "2-6 word topic for the whiteboard title." },
+                      summary: { type: "string", description: "2-3 sentence overview." },
+                      keyPoints: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            text: { type: "string" },
+                            sources: {
+                              type: "array",
+                              items: { type: "integer" },
+                              description: `${label} numbers this point came from.`,
+                            },
+                          },
+                          required: ["text", "sources"],
+                          additionalProperties: false,
+                        },
+                        description: "8-14 concise bullet points with citations.",
+                      },
+                      keyTerms: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            term: { type: "string" },
+                            definition: { type: "string" },
+                            sources: { type: "array", items: { type: "integer" } },
+                          },
+                          required: ["term", "definition", "sources"],
+                          additionalProperties: false,
+                        },
+                      },
                     },
-                  ],
+                    required: ["topic", "summary", "keyPoints", "keyTerms"],
+                    additionalProperties: false,
+                  },
                 },
-              ],
-              generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: schema,
               },
-            }),
-          },
-        );
+            ],
+            tool_choice: { type: "function", function: { name: "build_notes" } },
+          }),
+        });
 
         if (!upstream.ok) {
           const t = await upstream.text().catch(() => "");
-          const message =
-            upstream.status === 400 || upstream.status === 403
-              ? "Your Gemini API key was rejected — check it in the sidebar."
-              : upstream.status === 429
-                ? "Gemini rate limit reached for your key. Try again shortly."
-                : `Gemini error: ${upstream.status} ${t}`;
-          return new Response(JSON.stringify({ error: message }), {
-            status: upstream.status,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ error: `AI gateway error: ${upstream.status} ${t}` }),
+            { status: upstream.status, headers: { "Content-Type": "application/json" } },
+          );
         }
 
         const data = (await upstream.json()) as any;
-        const text = data?.candidates?.[0]?.content?.parts
-          ?.map((p: any) => p?.text ?? "")
-          .join("");
-        if (!text) {
+        const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        if (!args) {
           return new Response(JSON.stringify({ error: "No structured output" }), {
             status: 502,
             headers: { "Content-Type": "application/json" },
@@ -135,7 +125,7 @@ export const Route = createFileRoute("/api/summarize")({
         }
         let parsed: any;
         try {
-          parsed = JSON.parse(text);
+          parsed = JSON.parse(args);
         } catch {
           return new Response(JSON.stringify({ error: "Malformed AI response" }), {
             status: 502,
@@ -149,4 +139,3 @@ export const Route = createFileRoute("/api/summarize")({
     },
   },
 });
-
