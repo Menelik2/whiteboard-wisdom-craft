@@ -59,6 +59,9 @@ function Index() {
   const [colors, setColors] = useState<string[]>(["black", "blue", "green", "orange", "red"]);
   const [numConcepts, setNumConcepts] = useState(12);
   const [difficulty, setDifficulty] = useState<Difficulty>("Intermediate");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [keyDraft, setKeyDraft] = useState("");
+  const [showKey, setShowKey] = useState(false);
 
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
@@ -75,7 +78,29 @@ function Index() {
 
   useEffect(() => {
     setHistory(loadHistory());
+    const stored = loadGeminiKey();
+    setGeminiKey(stored);
+    setKeyDraft(stored);
   }, []);
+
+  const applyKey = () => {
+    const next = keyDraft.trim();
+    if (next && !looksLikeGeminiKey(next)) {
+      toast.error("That doesn't look like a Google AI Studio key (starts with AIza…)");
+      return;
+    }
+    saveGeminiKey(next);
+    setGeminiKey(next);
+    toast.success(next ? "Using your Gemini API key" : "Switched back to the built-in AI");
+  };
+
+  const clearKey = () => {
+    saveGeminiKey("");
+    setGeminiKey("");
+    setKeyDraft("");
+    toast.success("Key removed — using the built-in AI");
+  };
+
 
   const selectedSegments = useMemo(
     () => segments.filter((s) => selectedIdx.has(s.index)),
