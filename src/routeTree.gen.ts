@@ -10,22 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiSummarizeRouteImport } from './routes/api/summarize'
 import { Route as ApiGenerateWhiteboardRouteImport } from './routes/api/generate-whiteboard'
+import { Route as ApiSummarizeRouteImport } from './routes/api/summarize'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSummarizeRoute = ApiSummarizeRouteImport.update({
-  id: '/api/summarize',
-  path: '/api/summarize',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiGenerateWhiteboardRoute = ApiGenerateWhiteboardRouteImport.update({
   id: '/api/generate-whiteboard',
   path: '/api/generate-whiteboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSummarizeRoute = ApiSummarizeRouteImport.update({
+  id: '/api/summarize',
+  path: '/api/summarize',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -68,18 +68,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/summarize': {
-      id: '/api/summarize'
-      path: '/api/summarize'
-      fullPath: '/api/summarize'
-      preLoaderRoute: typeof ApiSummarizeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/generate-whiteboard': {
       id: '/api/generate-whiteboard'
       path: '/api/generate-whiteboard'
       fullPath: '/api/generate-whiteboard'
       preLoaderRoute: typeof ApiGenerateWhiteboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/summarize': {
+      id: '/api/summarize'
+      path: '/api/summarize'
+      fullPath: '/api/summarize'
+      preLoaderRoute: typeof ApiSummarizeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
