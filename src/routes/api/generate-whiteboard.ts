@@ -138,6 +138,47 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             ? body.difficulty
             : "Intermediate";
 
+        const prompt = buildPrompt({ topic, markerColors, numConcepts, difficulty, notes: body.notes });
+
+        const userKey = body.geminiKey?.trim();
+        if (userKey) {
+          // ---- User's own Gemini API key (Google AI Studio) ----
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: "user",
+                    parts: [{ text: `${prompt}\n\nOutput a single A4 portrait (2:3) image.` }],
+                  },
+                ],
+                generationConfig: {
+                  responseModalities: ["IMAGE", "TEXT"],
+                  imageConfig: { aspectRatio: "2:3" },
+                },
+              }),
+              signal: request.signal,
+            },
+          );
+          if (!res.ok) {
+            const t = await res.text().catch(() => "");
+            return new Response(`Gemini error (${res.status}): ${t.slice(0, 400)}`, {
+              status: res.status,
+            });
+          }
+          const data = (await res.json()) as any;
+          const inline = data?.candidates?.[0]?.content?.parts?.find(
+            (p: any) => p.inlineData?.data,
+          )?.inlineData;
+          if (!inline?.data) {
+            return new Response("Gemini returned no image data", { status: 502 });
+          }
+          return sseFromBase64(inline.data as string);
+        }
+
         const key = process.env.LOVABLE_API_KEY;
         if (!key) {
           return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
@@ -145,6 +186,8 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             headers: { "Content-Type": "application/json" },
           });
         }
+
+
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
           method: "POST",
