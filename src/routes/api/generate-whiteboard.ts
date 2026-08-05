@@ -14,7 +14,24 @@ type Body = {
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   notes?: Notes;
+  geminiKey?: string;
 };
+
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+
+/** Wrap a single finished image as a one-frame SSE stream the client parser understands. */
+const sseFromBase64 = (b64: string) =>
+  new Response(
+    `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: b64 })}\n\ndata: [DONE]\n\n`,
+    {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    },
+  );
+
 
 const buildPrompt = ({
   topic,
