@@ -197,7 +197,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           },
           body: JSON.stringify({
             model: "openai/gpt-image-2",
-            prompt: buildPrompt({ topic, markerColors, numConcepts, difficulty, notes: body.notes }),
+            prompt,
             size: "1024x1536",
             quality: "high",
             n: 1,
