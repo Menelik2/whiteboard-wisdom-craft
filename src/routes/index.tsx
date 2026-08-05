@@ -140,7 +140,12 @@ function Index() {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segments: selectedSegments, filename: docName }),
+        body: JSON.stringify({
+          segments: selectedSegments,
+          filename: docName,
+          ...(geminiKey ? { geminiKey } : {}),
+        }),
+
       });
       if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
       const data = (await res.json()) as Notes;
