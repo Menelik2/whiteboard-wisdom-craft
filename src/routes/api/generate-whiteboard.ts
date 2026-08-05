@@ -14,7 +14,24 @@ type Body = {
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   notes?: Notes;
+  geminiKey?: string;
 };
+
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+
+/** Wrap a single finished image as a one-frame SSE stream the client parser understands. */
+const sseFromBase64 = (b64: string) =>
+  new Response(
+    `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: b64 })}\n\ndata: [DONE]\n\n`,
+    {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    },
+  );
+
 
 const buildPrompt = ({
   topic,
@@ -121,6 +138,47 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             ? body.difficulty
             : "Intermediate";
 
+        const prompt = buildPrompt({ topic, markerColors, numConcepts, difficulty, notes: body.notes });
+
+        const userKey = body.geminiKey?.trim();
+        if (userKey) {
+          // ---- User's own Gemini API key (Google AI Studio) ----
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    role: "user",
+                    parts: [{ text: `${prompt}\n\nOutput a single A4 portrait (2:3) image.` }],
+                  },
+                ],
+                generationConfig: {
+                  responseModalities: ["IMAGE", "TEXT"],
+                  imageConfig: { aspectRatio: "2:3" },
+                },
+              }),
+              signal: request.signal,
+            },
+          );
+          if (!res.ok) {
+            const t = await res.text().catch(() => "");
+            return new Response(`Gemini error (${res.status}): ${t.slice(0, 400)}`, {
+              status: res.status,
+            });
+          }
+          const data = (await res.json()) as any;
+          const inline = data?.candidates?.[0]?.content?.parts?.find(
+            (p: any) => p.inlineData?.data,
+          )?.inlineData;
+          if (!inline?.data) {
+            return new Response("Gemini returned no image data", { status: 502 });
+          }
+          return sseFromBase64(inline.data as string);
+        }
+
         const key = process.env.LOVABLE_API_KEY;
         if (!key) {
           return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
@@ -128,6 +186,8 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             headers: { "Content-Type": "application/json" },
           });
         }
+
+
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
           method: "POST",
@@ -137,7 +197,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           },
           body: JSON.stringify({
             model: "openai/gpt-image-2",
-            prompt: buildPrompt({ topic, markerColors, numConcepts, difficulty, notes: body.notes }),
+            prompt,
             size: "1024x1536",
             quality: "high",
             n: 1,

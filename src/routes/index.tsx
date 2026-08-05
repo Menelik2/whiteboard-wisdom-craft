@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
 import { extractText, type Segment } from "@/lib/extractText";
+import { loadGeminiKey, saveGeminiKey, looksLikeGeminiKey } from "@/lib/gemini-key";
+
 import {
   downloadNotesPdf,
   downloadPdf,
@@ -59,6 +61,9 @@ function Index() {
   const [colors, setColors] = useState<string[]>(["black", "blue", "green", "orange", "red"]);
   const [numConcepts, setNumConcepts] = useState(12);
   const [difficulty, setDifficulty] = useState<Difficulty>("Intermediate");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [keyDraft, setKeyDraft] = useState("");
+  const [showKey, setShowKey] = useState(false);
 
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
@@ -75,7 +80,29 @@ function Index() {
 
   useEffect(() => {
     setHistory(loadHistory());
+    const stored = loadGeminiKey();
+    setGeminiKey(stored);
+    setKeyDraft(stored);
   }, []);
+
+  const applyKey = () => {
+    const next = keyDraft.trim();
+    if (next && !looksLikeGeminiKey(next)) {
+      toast.error("That doesn't look like a Google AI Studio key (starts with AIza…)");
+      return;
+    }
+    saveGeminiKey(next);
+    setGeminiKey(next);
+    toast.success(next ? "Using your Gemini API key" : "Switched back to the built-in AI");
+  };
+
+  const clearKey = () => {
+    saveGeminiKey("");
+    setGeminiKey("");
+    setKeyDraft("");
+    toast.success("Key removed — using the built-in AI");
+  };
+
 
   const selectedSegments = useMemo(
     () => segments.filter((s) => selectedIdx.has(s.index)),
@@ -113,7 +140,12 @@ function Index() {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segments: selectedSegments, filename: docName }),
+        body: JSON.stringify({
+          segments: selectedSegments,
+          filename: docName,
+          ...(geminiKey ? { geminiKey } : {}),
+        }),
+
       });
       if (!res.ok) throw new Error(`Summarize failed (${res.status})`);
       const data = (await res.json()) as Notes;
@@ -179,6 +211,8 @@ function Index() {
           numConcepts,
           difficulty,
           ...(notesPayload ? { notes: notesPayload } : {}),
+          ...(geminiKey ? { geminiKey } : {}),
+
         },
         (dataUrl, final) => {
           setSrc(dataUrl);
@@ -638,7 +672,76 @@ function Index() {
               </article>
             )}
           </section>
+
+          {/* Your own Gemini API key */}
+          <details className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span className="text-sm font-semibold">Use your own Gemini API key</span>
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  geminiKey
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {geminiKey ? "Your key" : "Built-in AI"}
+              </span>
+            </summary>
+
+            <p className="mt-3 text-xs text-muted-foreground">
+              Optional. Paste a Google AI Studio key to run summaries and whiteboard images on your
+              own quota. It is stored only in this browser and never shared. Leave empty to use the
+              built-in AI.
+            </p>
+
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type={showKey ? "text" : "password"}
+                value={keyDraft}
+                onChange={(e) => setKeyDraft(e.target.value)}
+                placeholder="AIza…"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none ring-ring/30 transition focus:border-primary focus:ring-2"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="rounded-xl border border-input px-3 py-2.5 text-xs font-medium hover:bg-accent"
+                >
+                  {showKey ? "Hide" : "Show"}
+                </button>
+                <button
+                  type="button"
+                  onClick={applyKey}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Save
+                </button>
+                {geminiKey && (
+                  <button
+                    type="button"
+                    onClick={clearKey}
+                    className="rounded-xl border border-input px-3 py-2.5 text-xs font-medium hover:bg-accent"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block text-xs font-medium text-primary underline underline-offset-2"
+            >
+              Get a free key from Google AI Studio
+            </a>
+          </details>
         </div>
+
 
         {/* ---------------- RIGHT: preview ---------------- */}
         <div className="flex flex-col gap-4 lg:sticky lg:top-20">
