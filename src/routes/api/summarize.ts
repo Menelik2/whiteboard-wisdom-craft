@@ -1,26 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 type Segment = { index: number; label: string; title: string; text: string };
-type Body = { segments?: Segment[]; filename?: string };
+type Body = { segments?: Segment[]; filename?: string; geminiKey?: string };
+
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 export const Route = createFileRoute("/api/summarize")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { segments, filename } = (await request.json()) as Body;
+        const { segments, filename, geminiKey } = (await request.json()) as Body;
         if (!segments || segments.length === 0) {
           return new Response(JSON.stringify({ error: "No segments provided" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });
         }
+        const userKey = geminiKey?.trim();
         const key = process.env.LOVABLE_API_KEY;
-        if (!key) {
-          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
+        if (!userKey && !key) {
+          return new Response(JSON.stringify({ error: "No AI key available" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
           });
         }
+
 
         const label = segments[0].label;
         // Build a labelled document with explicit citation markers.
