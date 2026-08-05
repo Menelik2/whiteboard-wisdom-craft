@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { streamImage } from "@/lib/streamImage";
 import { extractText, type Segment } from "@/lib/extractText";
+import { loadGeminiKey, saveGeminiKey, looksLikeGeminiKey } from "@/lib/gemini-key";
+
 import {
   downloadNotesPdf,
   downloadPdf,
