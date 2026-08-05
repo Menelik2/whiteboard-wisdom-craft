@@ -211,6 +211,8 @@ function Index() {
           numConcepts,
           difficulty,
           ...(notesPayload ? { notes: notesPayload } : {}),
+          ...(geminiKey ? { geminiKey } : {}),
+
         },
         (dataUrl, final) => {
           setSrc(dataUrl);
