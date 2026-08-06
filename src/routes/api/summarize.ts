@@ -128,50 +128,111 @@ export const Route = createFileRoute("/api/summarize")({
           }
           parsed = call.args;
         } else {
-          const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          // ---- Built-in AI: OpenAI GPT via the Lovable AI Gateway Responses API ----
+          const strictSchema = {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              topic: { type: "string", description: "2-6 word topic for the whiteboard title." },
+              summary: { type: "string", description: "2-3 sentence overview." },
+              keyPoints: {
+                type: "array",
+                description: "8-14 concise bullet points with citations.",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    text: { type: "string" },
+                    sources: {
+                      type: "array",
+                      items: { type: "integer" },
+                      description: `${label} numbers this point came from.`,
+                    },
+                  },
+                  required: ["text", "sources"],
+                },
+              },
+              keyTerms: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    term: { type: "string" },
+                    definition: { type: "string" },
+                    sources: { type: "array", items: { type: "integer" } },
+                  },
+                  required: ["term", "definition", "sources"],
+                },
+              },
+            },
+            required: ["topic", "summary", "keyPoints", "keyTerms"],
+          };
+
+          const upstream = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${key}`,
               "Content-Type": "application/json",
+              "Lovable-API-Key": key!,
+              "X-Lovable-AIG-SDK": "fetch",
             },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt },
-              ],
-              tools: [
-                {
-                  type: "function",
-                  function: {
-                    name: "build_notes",
-                    description: "Return structured study notes with source citations.",
-                    parameters,
-                  },
+              model: "openai/gpt-5.4-mini",
+              stream: true,
+              instructions: systemPrompt,
+              input: [{ role: "user", content: [{ type: "input_text", text: userPrompt }] }],
+              text: {
+                format: {
+                  type: "json_schema",
+                  name: "build_notes",
+                  strict: true,
+                  schema: strictSchema,
                 },
-              ],
-              tool_choice: { type: "function", function: { name: "build_notes" } },
+              },
             }),
+            signal: request.signal,
           });
 
-          if (!upstream.ok) {
+          if (!upstream.ok || !upstream.body) {
             const t = await upstream.text().catch(() => "");
             return new Response(
-              JSON.stringify({ error: `AI gateway error: ${upstream.status} ${t}` }),
+              JSON.stringify({ error: `AI gateway error: ${upstream.status} ${t.slice(0, 400)}` }),
               { status: upstream.status, headers: { "Content-Type": "application/json" } },
             );
           }
 
-          const data = (await upstream.json()) as any;
-          const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-          if (!args) {
-            return new Response(JSON.stringify({ error: "No structured output" }), {
-              status: 502,
-              headers: { "Content-Type": "application/json" },
-            });
+          // Read the SSE stream and accumulate the JSON output text.
+          const reader = upstream.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let text = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+            for (const line of lines) {
+              if (!line.startsWith("data:")) continue;
+              const payload = line.slice(5).trim();
+              if (!payload || payload === "[DONE]") continue;
+              try {
+                const evt = JSON.parse(payload) as any;
+                if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
+                  text += evt.delta;
+                } else if (evt.type === "response.completed" && evt.response?.output_text) {
+                  text = Array.isArray(evt.response.output_text)
+                    ? evt.response.output_text.join("")
+                    : String(evt.response.output_text);
+                }
+              } catch {
+                /* ignore partial frames */
+              }
+            }
           }
+
           try {
-            parsed = JSON.parse(args);
+            parsed = JSON.parse(text);
           } catch {
             return new Response(JSON.stringify({ error: "Malformed AI response" }), {
               status: 502,
