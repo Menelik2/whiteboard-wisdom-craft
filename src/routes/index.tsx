@@ -64,6 +64,9 @@ function Index() {
   const [geminiKey, setGeminiKey] = useState("");
   const [keyDraft, setKeyDraft] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [keyStatus, setKeyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [keyError, setKeyError] = useState<string | null>(null);
+
 
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
