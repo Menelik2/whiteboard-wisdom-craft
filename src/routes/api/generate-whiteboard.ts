@@ -143,40 +143,74 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
         const userKey = body.geminiKey?.trim();
         if (userKey) {
           // ---- User's own Gemini API key (Google AI Studio) ----
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    role: "user",
-                    parts: [{ text: `${prompt}\n\nOutput a single A4 portrait (2:3) image.` }],
-                  },
-                ],
-                generationConfig: {
-                  responseModalities: ["IMAGE", "TEXT"],
-                  imageConfig: { aspectRatio: "2:3" },
+          // Model ids differ across AI Studio rollouts; try the stable id, then the preview id.
+          const models = [GEMINI_IMAGE_MODEL, `${GEMINI_IMAGE_MODEL}-preview`];
+          let lastError = "";
+
+          for (const model of models) {
+            let res: Response;
+            try {
+              res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
+                  body: JSON.stringify({
+                    contents: [
+                      {
+                        role: "user",
+                        parts: [
+                          {
+                            text: `${prompt}\n\nOutput a single A4 portrait (2:3 aspect ratio) image. Return the image only.`,
+                          },
+                        ],
+                      },
+                    ],
+                    // NOTE: no imageConfig — Gemini 2.5 image models reject it.
+                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+                  }),
+                  signal: request.signal,
                 },
-              }),
-              signal: request.signal,
-            },
+              );
+            } catch {
+              return new Response("Could not reach Google's API. Check your connection.", {
+                status: 502,
+              });
+            }
+
+            if (!res.ok) {
+              const raw = await res.text().catch(() => "");
+              let detail = raw.slice(0, 400);
+              try {
+                detail = JSON.parse(raw)?.error?.message || detail;
+              } catch {
+                /* keep raw */
+              }
+              lastError = detail;
+              // Unknown/unsupported model for this key — try the next candidate id.
+              if (res.status === 404 || /not found|not supported/i.test(detail)) continue;
+              return new Response(`Gemini error (${res.status}): ${detail}`, { status: res.status });
+            }
+
+            const data = (await res.json()) as any;
+            const inline = data?.candidates?.[0]?.content?.parts?.find(
+              (p: any) => p.inlineData?.data,
+            )?.inlineData;
+            if (inline?.data) return sseFromBase64(inline.data as string);
+
+            const blocked =
+              data?.promptFeedback?.blockReason ||
+              data?.candidates?.[0]?.finishReason;
+            lastError = blocked
+              ? `Gemini returned no image (${blocked}). Try rephrasing the topic.`
+              : "Gemini returned no image data.";
+          }
+
+          return new Response(
+            lastError ||
+              "Your Gemini key could not generate an image. Image generation may not be enabled for it.",
+            { status: 502 },
           );
-          if (!res.ok) {
-            const t = await res.text().catch(() => "");
-            return new Response(`Gemini error (${res.status}): ${t.slice(0, 400)}`, {
-              status: res.status,
-            });
-          }
-          const data = (await res.json()) as any;
-          const inline = data?.candidates?.[0]?.content?.parts?.find(
-            (p: any) => p.inlineData?.data,
-          )?.inlineData;
-          if (!inline?.data) {
-            return new Response("Gemini returned no image data", { status: 502 });
-          }
-          return sseFromBase64(inline.data as string);
         }
 
         const key = process.env.LOVABLE_API_KEY;
