@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateWhiteboardRouteImport } from './routes/api/generate-whiteboard'
 import { Route as ApiSummarizeRouteImport } from './routes/api/summarize'
+import { Route as ApiValidateGeminiKeyRouteImport } from './routes/api/validate-gemini-key'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,57 @@ const ApiSummarizeRoute = ApiSummarizeRouteImport.update({
   path: '/api/summarize',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiValidateGeminiKeyRoute = ApiValidateGeminiKeyRouteImport.update({
+  id: '/api/validate-gemini-key',
+  path: '/api/validate-gemini-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/generate-whiteboard': typeof ApiGenerateWhiteboardRoute
   '/api/summarize': typeof ApiSummarizeRoute
+  '/api/validate-gemini-key': typeof ApiValidateGeminiKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/generate-whiteboard': typeof ApiGenerateWhiteboardRoute
   '/api/summarize': typeof ApiSummarizeRoute
+  '/api/validate-gemini-key': typeof ApiValidateGeminiKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/generate-whiteboard': typeof ApiGenerateWhiteboardRoute
   '/api/summarize': typeof ApiSummarizeRoute
+  '/api/validate-gemini-key': typeof ApiValidateGeminiKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/generate-whiteboard' | '/api/summarize'
+  fullPaths:
+    | '/'
+    | '/api/generate-whiteboard'
+    | '/api/summarize'
+    | '/api/validate-gemini-key'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/generate-whiteboard' | '/api/summarize'
-  id: '__root__' | '/' | '/api/generate-whiteboard' | '/api/summarize'
+  to:
+    | '/'
+    | '/api/generate-whiteboard'
+    | '/api/summarize'
+    | '/api/validate-gemini-key'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/generate-whiteboard'
+    | '/api/summarize'
+    | '/api/validate-gemini-key'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiGenerateWhiteboardRoute: typeof ApiGenerateWhiteboardRoute
   ApiSummarizeRoute: typeof ApiSummarizeRoute
+  ApiValidateGeminiKeyRoute: typeof ApiValidateGeminiKeyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +105,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSummarizeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/validate-gemini-key': {
+      id: '/api/validate-gemini-key'
+      path: '/api/validate-gemini-key'
+      fullPath: '/api/validate-gemini-key'
+      preLoaderRoute: typeof ApiValidateGeminiKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +119,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiGenerateWhiteboardRoute: ApiGenerateWhiteboardRoute,
   ApiSummarizeRoute: ApiSummarizeRoute,
+  ApiValidateGeminiKeyRoute: ApiValidateGeminiKeyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

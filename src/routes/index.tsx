@@ -64,6 +64,9 @@ function Index() {
   const [geminiKey, setGeminiKey] = useState("");
   const [keyDraft, setKeyDraft] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [keyStatus, setKeyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [keyError, setKeyError] = useState<string | null>(null);
+
 
   const [src, setSrc] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
@@ -85,23 +88,65 @@ function Index() {
     setKeyDraft(stored);
   }, []);
 
-  const applyKey = () => {
+  const applyKey = async () => {
     const next = keyDraft.trim();
-    if (next && !looksLikeGeminiKey(next)) {
+    if (!next) {
+      saveGeminiKey("");
+      setGeminiKey("");
+      setKeyStatus("idle");
+      toast.success("Switched back to the built-in AI");
+      return;
+    }
+    if (!looksLikeGeminiKey(next)) {
+      setKeyStatus("invalid");
+      setKeyError("That doesn't look like a Google AI Studio key (it starts with AIza…).");
       toast.error("That doesn't look like a Google AI Studio key (starts with AIza…)");
       return;
     }
-    saveGeminiKey(next);
-    setGeminiKey(next);
-    toast.success(next ? "Using your Gemini API key" : "Switched back to the built-in AI");
+
+    setKeyStatus("checking");
+    setKeyError(null);
+    try {
+      const res = await fetch("/api/validate-gemini-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geminiKey: next }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { valid?: boolean; error?: string; warning?: string }
+        | null;
+
+      if (!data?.valid) {
+        const msg = data?.error ?? "Could not validate this key. Please try again.";
+        setKeyStatus("invalid");
+        setKeyError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      saveGeminiKey(next);
+      setGeminiKey(next);
+      setKeyStatus("valid");
+      setKeyError(null);
+      if (data.warning) toast.warning(data.warning);
+      else toast.success("Key verified — using your Gemini API key");
+    } catch {
+      const msg = "Could not reach the validation service. Check your connection and retry.";
+      setKeyStatus("invalid");
+      setKeyError(msg);
+      toast.error(msg);
+    }
   };
 
   const clearKey = () => {
     saveGeminiKey("");
     setGeminiKey("");
     setKeyDraft("");
+    setKeyStatus("idle");
+    setKeyError(null);
     toast.success("Key removed — using the built-in AI");
   };
+
 
 
   const selectedSegments = useMemo(
@@ -715,9 +760,10 @@ function Index() {
                 <button
                   type="button"
                   onClick={applyKey}
-                  className="rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                  disabled={keyStatus === "checking"}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
-                  Save
+                  {keyStatus === "checking" ? "Verifying…" : "Verify & save"}
                 </button>
                 {geminiKey && (
                   <button
@@ -730,6 +776,21 @@ function Index() {
                 )}
               </div>
             </div>
+
+            {keyStatus === "invalid" && keyError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+              >
+                {keyError}
+              </p>
+            )}
+            {keyStatus === "valid" && (
+              <p className="mt-3 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
+                Key verified and saved — your Gemini quota is now used.
+              </p>
+            )}
+
 
             <a
               href="https://aistudio.google.com/app/apikey"
