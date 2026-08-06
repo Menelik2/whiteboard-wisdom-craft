@@ -760,9 +760,10 @@ function Index() {
                 <button
                   type="button"
                   onClick={applyKey}
-                  className="rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                  disabled={keyStatus === "checking"}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
-                  Save
+                  {keyStatus === "checking" ? "Verifying…" : "Verify & save"}
                 </button>
                 {geminiKey && (
                   <button
@@ -775,6 +776,21 @@ function Index() {
                 )}
               </div>
             </div>
+
+            {keyStatus === "invalid" && keyError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+              >
+                {keyError}
+              </p>
+            )}
+            {keyStatus === "valid" && (
+              <p className="mt-3 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
+                Key verified and saved — your Gemini quota is now used.
+              </p>
+            )}
+
 
             <a
               href="https://aistudio.google.com/app/apikey"
