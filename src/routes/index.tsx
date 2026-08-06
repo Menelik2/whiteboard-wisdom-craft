@@ -85,23 +85,65 @@ function Index() {
     setKeyDraft(stored);
   }, []);
 
-  const applyKey = () => {
+  const applyKey = async () => {
     const next = keyDraft.trim();
-    if (next && !looksLikeGeminiKey(next)) {
+    if (!next) {
+      saveGeminiKey("");
+      setGeminiKey("");
+      setKeyStatus("idle");
+      toast.success("Switched back to the built-in AI");
+      return;
+    }
+    if (!looksLikeGeminiKey(next)) {
+      setKeyStatus("invalid");
+      setKeyError("That doesn't look like a Google AI Studio key (it starts with AIza…).");
       toast.error("That doesn't look like a Google AI Studio key (starts with AIza…)");
       return;
     }
-    saveGeminiKey(next);
-    setGeminiKey(next);
-    toast.success(next ? "Using your Gemini API key" : "Switched back to the built-in AI");
+
+    setKeyStatus("checking");
+    setKeyError(null);
+    try {
+      const res = await fetch("/api/validate-gemini-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geminiKey: next }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { valid?: boolean; error?: string; warning?: string }
+        | null;
+
+      if (!data?.valid) {
+        const msg = data?.error ?? "Could not validate this key. Please try again.";
+        setKeyStatus("invalid");
+        setKeyError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      saveGeminiKey(next);
+      setGeminiKey(next);
+      setKeyStatus("valid");
+      setKeyError(null);
+      if (data.warning) toast.warning(data.warning);
+      else toast.success("Key verified — using your Gemini API key");
+    } catch {
+      const msg = "Could not reach the validation service. Check your connection and retry.";
+      setKeyStatus("invalid");
+      setKeyError(msg);
+      toast.error(msg);
+    }
   };
 
   const clearKey = () => {
     saveGeminiKey("");
     setGeminiKey("");
     setKeyDraft("");
+    setKeyStatus("idle");
+    setKeyError(null);
     toast.success("Key removed — using the built-in AI");
   };
+
 
 
   const selectedSegments = useMemo(
