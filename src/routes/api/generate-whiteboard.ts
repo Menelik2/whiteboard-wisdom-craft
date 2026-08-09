@@ -14,7 +14,7 @@ type Body = {
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   notes?: Notes;
-  /** Ignored: Gemini keys are text-only (summarize). Images always use built-in AI. */
+  /** Reserved; whiteboard images use built-in AI only. */
   geminiKey?: string;
 };
 
@@ -132,16 +132,23 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           notes: body.notes,
         });
 
-        // Whiteboard images always use the site built-in generator.
-        // User Gemini keys are text-only (document summarize via /api/summarize).
-        // Free-tier Gemini image quota is often 0 and is not used here.
+        // Prefer common env names used by Lovable / local setup.
+        const key =
+          process.env.LOVABLE_API_KEY?.trim() ||
+          process.env.LOVABLE_AI_API_KEY?.trim() ||
+          process.env.AI_GATEWAY_API_KEY?.trim();
 
-        const key = process.env.LOVABLE_API_KEY;
         if (!key) {
-          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              error:
+                "LOVABLE_API_KEY missing. Add it in Vercel → Project → Settings → Environment Variables (Production), then Redeploy. Whiteboard images use the site built-in AI, not your Gemini key.",
+            }),
+            {
+              status: 503,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         }
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
@@ -171,7 +178,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
               { status: 429 },
             );
           }
-          return new Response(text || "Upstream error", { status });
+          return new Response(text || "Upstream error", { status: status || 502 });
         }
 
         return new Response(upstream.body, {

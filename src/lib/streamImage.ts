@@ -5,23 +5,45 @@ type Payload = {
   b64_json?: string;
 };
 
+function extractErrorText(body: string): string {
+  const text = (body || "").trim();
+  if (!text) return "";
+  try {
+    const j = JSON.parse(text) as { error?: unknown; message?: unknown };
+    if (typeof j.error === "string" && j.error.trim()) return j.error.trim();
+    if (j.error && typeof j.error === "object" && j.error !== null && "message" in j.error) {
+      const m = (j.error as { message?: unknown }).message;
+      if (typeof m === "string" && m.trim()) return m.trim();
+    }
+    if (typeof j.message === "string" && j.message.trim()) return j.message.trim();
+  } catch {
+    /* not JSON */
+  }
+  return text;
+}
+
 /** Map common upstream failures to short, actionable errors. */
 function friendlyHttpError(status: number, body: string): string {
-  const text = (body || "").trim();
+  const text = extractErrorText(body);
+
+  if (/LOVABLE_API_KEY missing/i.test(text)) {
+    return (
+      "Built-in image AI is not configured (LOVABLE_API_KEY missing on the server). " +
+      "Add LOVABLE_API_KEY in the Vercel project Environment Variables, then redeploy."
+    );
+  }
+
   if (status === 429) {
     if (/limit:\s*0|free_tier|not available on the free tier/i.test(text)) {
       return (
         text.replace(/^Gemini error \(429\):\s*/i, "") ||
-        "Gemini image generation needs a paid API project (free-tier image quota is 0). Enable billing or use Built-in AI."
+        "Gemini image generation needs a paid API project (free-tier image quota is 0)."
       );
     }
-    return (
-      text.replace(/^Gemini error \(429\):\s*/i, "") ||
-      "Rate limited (429). Wait a minute and try again."
-    );
+    return text.replace(/^Gemini error \(429\):\s*/i, "") || "Rate limited (429). Wait a minute and try again.";
   }
   if (status === 401 || status === 403) {
-    return text || "API key was rejected. Check your Gemini key or Built-in AI configuration.";
+    return text || "API key was rejected. Check Built-in AI configuration on the server.";
   }
   if (status >= 500) {
     return text || `Server error (${status}). Try again shortly.`;
