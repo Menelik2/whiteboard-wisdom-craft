@@ -20,8 +20,11 @@ export function saveGeminiKey(key: string) {
   }
 }
 
-/** Loose shape check for a Google AI Studio key. */
-
+/**
+ * Loose client-side shape check for Google AI Studio / Gemini keys.
+ * Accepts legacy AIza… keys and new AQ. authorization keys.
+ * Server /api/validate-gemini-key performs the real check.
+ */
 export function looksLikeGeminiKey(key: string) {
   const k = key.trim();
   if (!k || k.length < 20 || k.length > 512) return false;
