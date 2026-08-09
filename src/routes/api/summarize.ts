@@ -1,14 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GEMINI_TEXT_MODELS } from "@/lib/gemini-models";
 
 type Segment = { index: number; label: string; title: string; text: string };
 type Body = { segments?: Segment[]; filename?: string; geminiKey?: string };
-
-/** Real generateContent model ids (there is no "gemini-3.1-flash"). */
-const GEMINI_TEXT_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-3.5-flash",
-] as const;
 
 export const Route = createFileRoute("/api/summarize")({
   server: {
@@ -165,9 +159,7 @@ export const Route = createFileRoute("/api/summarize")({
           if (!parsed) {
             return new Response(
               JSON.stringify({
-                error:
-                  lastDetail ||
-                  "No supported Gemini text model available for this key.",
+                error: lastDetail || "No supported Gemini text model available for this key.",
               }),
               { status: lastStatus, headers: { "Content-Type": "application/json" } },
             );

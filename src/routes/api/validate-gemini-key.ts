@@ -1,13 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GEMINI_TEXT_MODELS } from "@/lib/gemini-models";
 
 type Body = { geminiKey?: string };
-
-/** Real generateContent model ids (there is no "gemini-3.1-flash"). */
-const VALIDATION_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-3.5-flash",
-] as const;
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -26,8 +20,7 @@ const messageFor = (status: number, raw: string) => {
 
   if (status === 400 && /API key not valid/i.test(detail))
     return "That API key is not valid. Check you copied the whole key from Google AI Studio.";
-  if (status === 400 && /not found|not supported/i.test(detail))
-    return detail;
+  if (status === 400 && /not found|not supported/i.test(detail)) return detail;
   if (status === 400) return detail || "The key was rejected as malformed.";
   if (status === 401) return "Unauthorized — this key is not accepted by Google AI Studio.";
   if (status === 403)
@@ -52,7 +45,7 @@ export const Route = createFileRoute("/api/validate-gemini-key")({
         let lastRaw = "";
         let lastStatus = 0;
 
-        for (const model of VALIDATION_MODELS) {
+        for (const model of GEMINI_TEXT_MODELS) {
           let res: Response;
           try {
             res = await fetch(
@@ -80,20 +73,18 @@ export const Route = createFileRoute("/api/validate-gemini-key")({
           lastRaw = raw;
           lastStatus = res.status;
 
-          // 429 = key authenticated but quota hit — treat as usable
           if (res.status === 429) return json({ valid: true, warning: messageFor(429, raw) });
-
-          // Unknown model for this key/region — try next id
           if (res.status === 404 || /not found|not supported/i.test(raw)) continue;
 
-          // Real auth / permission failure — stop
           return json({ valid: false, error: messageFor(res.status, raw) }, 200);
         }
 
         return json(
           {
             valid: false,
-            error: messageFor(lastStatus || 404, lastRaw) || "No supported Gemini text model available for this key.",
+            error:
+              messageFor(lastStatus || 404, lastRaw) ||
+              "No supported Gemini text model available for this key.",
           },
           200,
         );
