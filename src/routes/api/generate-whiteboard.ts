@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GEMINI_IMAGE_MODELS } from "@/lib/gemini-models";
 
 type NoteBullet = { text?: string; sources?: number[] };
 type NoteTerm = { term?: string; definition?: string; sources?: number[] };
@@ -16,13 +17,6 @@ type Body = {
   notes?: Notes;
   geminiKey?: string;
 };
-
-/** Nano Banana 2 family first; legacy 2.5 last. */
-const GEMINI_IMAGE_MODELS = [
-  "gemini-3.1-flash-image",
-  "gemini-3.1-flash-lite-image",
-  "gemini-2.5-flash-image",
-] as const;
 
 const FREE_TIER_IMAGE_MSG =
   "Gemini image generation is not available on the free tier for this API key (quota limit 0). " +
@@ -52,7 +46,6 @@ const parseGeminiErrorDetail = (raw: string) => {
   }
 };
 
-/** Free-tier image quota is often hard-zero (not a soft rate limit). */
 const isFreeTierBlocked = (status: number, detail: string) =>
   status === 429 &&
   (/limit:\s*0/i.test(detail) ||
