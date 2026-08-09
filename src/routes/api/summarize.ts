@@ -3,7 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 type Segment = { index: number; label: string; title: string; text: string };
 type Body = { segments?: Segment[]; filename?: string; geminiKey?: string };
 
-const GEMINI_MODEL = "gemini-3.1-flash";
+/** Real generateContent model ids (there is no "gemini-3.1-flash"). */
+const GEMINI_TEXT_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash",
+] as const;
 
 export const Route = createFileRoute("/api/summarize")({
   server: {
@@ -82,63 +87,91 @@ export const Route = createFileRoute("/api/summarize")({
         let parsed: any;
 
         if (userKey) {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-                tools: [
-                  {
-                    functionDeclarations: [
-                      {
-                        name: "build_notes",
-                        description: "Return structured study notes with source citations.",
-                        parameters,
-                      },
-                    ],
+          let lastDetail = "";
+          let lastStatus = 502;
+
+          for (const model of GEMINI_TEXT_MODELS) {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
+                body: JSON.stringify({
+                  systemInstruction: { parts: [{ text: systemPrompt }] },
+                  contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+                  tools: [
+                    {
+                      functionDeclarations: [
+                        {
+                          name: "build_notes",
+                          description: "Return structured study notes with source citations.",
+                          parameters,
+                        },
+                      ],
+                    },
+                  ],
+                  toolConfig: {
+                    functionCallingConfig: {
+                      mode: "ANY",
+                      allowedFunctionNames: ["build_notes"],
+                    },
                   },
-                ],
-                toolConfig: {
-                  functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["build_notes"] },
-                },
-              }),
-            },
-          );
-          if (!res.ok) {
-            const t = await res.text().catch(() => "");
-            let detail = t.slice(0, 400);
-            try {
-              detail = JSON.parse(t)?.error?.message || detail;
-            } catch {
-              /* keep */
+                }),
+                signal: request.signal,
+              },
+            );
+
+            if (!res.ok) {
+              const t = await res.text().catch(() => "");
+              let detail = t.slice(0, 400);
+              try {
+                detail = JSON.parse(t)?.error?.message || detail;
+              } catch {
+                /* keep */
+              }
+              lastDetail = detail;
+              lastStatus = res.status;
+
+              if (res.status === 404 || /not found|not supported/i.test(detail)) continue;
+
+              if (res.status === 429) {
+                const msg = /limit:\s*0|free_tier/i.test(detail)
+                  ? "Gemini quota exhausted for this key (free tier). Enable billing or try again later."
+                  : "Gemini is rate-limiting this key. Wait a minute and try again.";
+                return new Response(JSON.stringify({ error: msg }), {
+                  status: 429,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+
+              return new Response(
+                JSON.stringify({ error: `Gemini error (${res.status}): ${detail}` }),
+                { status: res.status, headers: { "Content-Type": "application/json" } },
+              );
             }
-            if (res.status === 429) {
-              const msg = /limit:\s*0|free_tier/i.test(detail)
-                ? "Gemini quota exhausted for this key (free tier). Enable billing or try again later."
-                : "Gemini is rate-limiting this key. Wait a minute and try again.";
-              return new Response(JSON.stringify({ error: msg }), {
-                status: 429,
-                headers: { "Content-Type": "application/json" },
-              });
+
+            const data = (await res.json()) as any;
+            const call = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)
+              ?.functionCall;
+            if (!call?.args) {
+              lastDetail = "No structured output from Gemini";
+              lastStatus = 502;
+              continue;
             }
+            parsed = call.args;
+            break;
+          }
+
+          if (!parsed) {
             return new Response(
-              JSON.stringify({ error: `Gemini error (${res.status}): ${detail}` }),
-              { status: res.status, headers: { "Content-Type": "application/json" } },
+              JSON.stringify({
+                error:
+                  lastDetail ||
+                  "No supported Gemini text model available for this key.",
+              }),
+              { status: lastStatus, headers: { "Content-Type": "application/json" } },
             );
           }
-          const data = (await res.json()) as any;
-          const call = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.functionCall)
-            ?.functionCall;
-          if (!call?.args) {
-            return new Response(JSON.stringify({ error: "No structured output from Gemini" }), {
-              status: 502,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-          parsed = call.args;
         } else {
           const strictSchema = {
             type: "object",
