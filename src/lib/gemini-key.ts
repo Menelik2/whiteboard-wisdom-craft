@@ -21,6 +21,12 @@ export function saveGeminiKey(key: string) {
 }
 
 /** Loose shape check for a Google AI Studio key. */
+
 export function looksLikeGeminiKey(key: string) {
-  return /^AIza[0-9A-Za-z_-]{20,}$/.test(key.trim());
+  const k = key.trim();
+  if (!k || k.length < 20 || k.length > 512) return false;
+  if (/^AIza[0-9A-Za-z_-]{20,}$/.test(k)) return true;
+  if (/^AQ\.[0-9A-Za-z_-]+$/.test(k)) return true;
+  if (/^[A-Za-z0-9._-]{20,}$/.test(k)) return true;
+  return false;
 }
