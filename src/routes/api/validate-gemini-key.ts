@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 type Body = { geminiKey?: string };
 
-const VALIDATION_MODEL = "gemini-2.5-flash";
+const VALIDATION_MODEL = "gemini-3.1-flash";
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -10,7 +10,6 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-/** Map a Google API failure to a clear, user-facing message. */
 const messageFor = (status: number, raw: string) => {
   const detail = (() => {
     try {
@@ -26,8 +25,11 @@ const messageFor = (status: number, raw: string) => {
   if (status === 401) return "Unauthorized — this key is not accepted by Google AI Studio.";
   if (status === 403)
     return "This key is not authorized for the Gemini API. Enable the Generative Language API for its project, or create a new key in Google AI Studio.";
-  if (status === 429)
+  if (status === 429) {
+    if (/limit:\s*0|free_tier/i.test(detail))
+      return "This key authenticates, but free-tier quota is exhausted for the validation model. Billing may be required for full access.";
     return "This key is valid but currently rate-limited or out of quota. Try again later.";
+  }
   if (status >= 500) return "Google's API is temporarily unavailable. Try validating again shortly.";
   return detail || `Validation failed (HTTP ${status}).`;
 };
@@ -64,7 +66,6 @@ export const Route = createFileRoute("/api/validate-gemini-key")({
         if (res.ok) return json({ valid: true });
 
         const raw = await res.text().catch(() => "");
-        // 429 means the key authenticated but hit quota — treat it as usable.
         if (res.status === 429) return json({ valid: true, warning: messageFor(429, raw) });
 
         return json({ valid: false, error: messageFor(res.status, raw) }, 200);

@@ -17,7 +17,19 @@ type Body = {
   geminiKey?: string;
 };
 
-const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+/** Nano Banana 2 family first; legacy 2.5 last. */
+const GEMINI_IMAGE_MODELS = [
+  "gemini-3.1-flash-image",
+  "gemini-3.1-flash-lite-image",
+  "gemini-2.5-flash-image",
+] as const;
+
+const FREE_TIER_IMAGE_MSG =
+  "Gemini image generation is not available on the free tier for this API key (quota limit 0). " +
+  "Enable billing on the Google AI Studio / Cloud project for this key, or remove the key and use Built-in AI.";
+
+const RATE_LIMIT_MSG =
+  "Gemini is rate-limiting this key right now. Wait about a minute and try again, or switch to Built-in AI.";
 
 /** Wrap a single finished image as a one-frame SSE stream the client parser understands. */
 const sseFromBase64 = (b64: string) =>
@@ -32,6 +44,23 @@ const sseFromBase64 = (b64: string) =>
     },
   );
 
+const parseGeminiErrorDetail = (raw: string) => {
+  try {
+    return (JSON.parse(raw)?.error?.message as string) || raw;
+  } catch {
+    return raw;
+  }
+};
+
+/** Free-tier image quota is often hard-zero (not a soft rate limit). */
+const isFreeTierBlocked = (status: number, detail: string) =>
+  status === 429 &&
+  (/limit:\s*0/i.test(detail) ||
+    /free_tier/i.test(detail) ||
+    (/quota/i.test(detail) && /free/i.test(detail)));
+
+const isTransientRateLimit = (status: number, detail: string) =>
+  status === 429 && !isFreeTierBlocked(status, detail);
 
 const buildPrompt = ({
   topic,
@@ -129,32 +158,41 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             headers: { "Content-Type": "application/json" },
           });
         }
-        const markerColors = Array.isArray(body.markerColors) && body.markerColors.length
-          ? body.markerColors.slice(0, 6)
-          : ["black", "blue", "green", "orange", "red"];
+        const markerColors =
+          Array.isArray(body.markerColors) && body.markerColors.length
+            ? body.markerColors.slice(0, 6)
+            : ["black", "blue", "green", "orange", "red"];
         const numConcepts = Math.min(20, Math.max(5, Number(body.numConcepts) || 12));
         const difficulty: "Beginner" | "Intermediate" | "Advanced" =
           body.difficulty === "Beginner" || body.difficulty === "Advanced"
             ? body.difficulty
             : "Intermediate";
 
-        const prompt = buildPrompt({ topic, markerColors, numConcepts, difficulty, notes: body.notes });
+        const prompt = buildPrompt({
+          topic,
+          markerColors,
+          numConcepts,
+          difficulty,
+          notes: body.notes,
+        });
 
         const userKey = body.geminiKey?.trim();
         if (userKey) {
-          // ---- User's own Gemini API key (Google AI Studio) ----
-          // Model ids differ across AI Studio rollouts; try the stable id, then the preview id.
-          const models = [GEMINI_IMAGE_MODEL, `${GEMINI_IMAGE_MODEL}-preview`];
           let lastError = "";
+          let sawFreeTierBlock = false;
+          let sawTransient429 = false;
 
-          for (const model of models) {
+          for (const model of GEMINI_IMAGE_MODELS) {
             let res: Response;
             try {
               res = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
                 {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": userKey,
+                  },
                   body: JSON.stringify({
                     contents: [
                       {
@@ -166,7 +204,6 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
                         ],
                       },
                     ],
-                    // NOTE: no imageConfig — Gemini 2.5 image models reject it.
                     generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
                   }),
                   signal: request.signal,
@@ -180,16 +217,26 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
 
             if (!res.ok) {
               const raw = await res.text().catch(() => "");
-              let detail = raw.slice(0, 400);
-              try {
-                detail = JSON.parse(raw)?.error?.message || detail;
-              } catch {
-                /* keep raw */
-              }
+              const detail = parseGeminiErrorDetail(raw).slice(0, 500);
               lastError = detail;
-              // Unknown/unsupported model for this key — try the next candidate id.
-              if (res.status === 404 || /not found|not supported/i.test(detail)) continue;
-              return new Response(`Gemini error (${res.status}): ${detail}`, { status: res.status });
+
+              if (res.status === 404 || /not found|not supported/i.test(detail)) {
+                continue;
+              }
+
+              if (isFreeTierBlocked(res.status, detail)) {
+                sawFreeTierBlock = true;
+                continue;
+              }
+
+              if (isTransientRateLimit(res.status, detail)) {
+                sawTransient429 = true;
+                continue;
+              }
+
+              return new Response(`Gemini error (${res.status}): ${detail}`, {
+                status: res.status,
+              });
             }
 
             const data = (await res.json()) as any;
@@ -199,11 +246,23 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             if (inline?.data) return sseFromBase64(inline.data as string);
 
             const blocked =
-              data?.promptFeedback?.blockReason ||
-              data?.candidates?.[0]?.finishReason;
+              data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
             lastError = blocked
               ? `Gemini returned no image (${blocked}). Try rephrasing the topic.`
               : "Gemini returned no image data.";
+          }
+
+          if (sawFreeTierBlock) {
+            return new Response(`Gemini error (429): ${FREE_TIER_IMAGE_MSG}`, {
+              status: 429,
+              headers: { "Content-Type": "text/plain; charset=utf-8" },
+            });
+          }
+          if (sawTransient429) {
+            return new Response(`Gemini error (429): ${RATE_LIMIT_MSG}`, {
+              status: 429,
+              headers: { "Content-Type": "text/plain; charset=utf-8" },
+            });
           }
 
           return new Response(
@@ -220,8 +279,6 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
             headers: { "Content-Type": "application/json" },
           });
         }
-
-
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
           method: "POST",
@@ -243,7 +300,15 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
 
         if (!upstream.ok || !upstream.body) {
           const text = await upstream.text().catch(() => "");
-          return new Response(text || "Upstream error", { status: upstream.status });
+          const status = upstream.status;
+          if (status === 429) {
+            return new Response(
+              text ||
+                "Built-in AI is rate-limited right now. Wait a moment and try again, or use your own Gemini key with billing enabled.",
+              { status: 429 },
+            );
+          }
+          return new Response(text || "Upstream error", { status });
         }
 
         return new Response(upstream.body, {

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 type Segment = { index: number; label: string; title: string; text: string };
 type Body = { segments?: Segment[]; filename?: string; geminiKey?: string };
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.1-flash";
 
 export const Route = createFileRoute("/api/summarize")({
   server: {
@@ -25,9 +25,7 @@ export const Route = createFileRoute("/api/summarize")({
           });
         }
 
-
         const label = segments[0].label;
-        // Build a labelled document with explicit citation markers.
         let doc = "";
         let total = 0;
         const CAP = 60_000;
@@ -84,7 +82,6 @@ export const Route = createFileRoute("/api/summarize")({
         let parsed: any;
 
         if (userKey) {
-          // ---- User's own Gemini API key (Google AI Studio) ----
           const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
             {
@@ -112,8 +109,23 @@ export const Route = createFileRoute("/api/summarize")({
           );
           if (!res.ok) {
             const t = await res.text().catch(() => "");
+            let detail = t.slice(0, 400);
+            try {
+              detail = JSON.parse(t)?.error?.message || detail;
+            } catch {
+              /* keep */
+            }
+            if (res.status === 429) {
+              const msg = /limit:\s*0|free_tier/i.test(detail)
+                ? "Gemini quota exhausted for this key (free tier). Enable billing or try again later."
+                : "Gemini is rate-limiting this key. Wait a minute and try again.";
+              return new Response(JSON.stringify({ error: msg }), {
+                status: 429,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
             return new Response(
-              JSON.stringify({ error: `Gemini error (${res.status}): ${t.slice(0, 400)}` }),
+              JSON.stringify({ error: `Gemini error (${res.status}): ${detail}` }),
               { status: res.status, headers: { "Content-Type": "application/json" } },
             );
           }
@@ -128,7 +140,6 @@ export const Route = createFileRoute("/api/summarize")({
           }
           parsed = call.args;
         } else {
-          // ---- Built-in AI: OpenAI GPT via the Lovable AI Gateway Responses API ----
           const strictSchema = {
             type: "object",
             additionalProperties: false,
@@ -201,7 +212,6 @@ export const Route = createFileRoute("/api/summarize")({
             );
           }
 
-          // Read the SSE stream and accumulate the JSON output text.
           const reader = upstream.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
@@ -244,7 +254,6 @@ export const Route = createFileRoute("/api/summarize")({
         return new Response(JSON.stringify({ ...parsed, sourceLabel: label }), {
           headers: { "Content-Type": "application/json" },
         });
-
       },
     },
   },
