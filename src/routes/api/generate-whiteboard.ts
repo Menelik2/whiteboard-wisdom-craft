@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { GEMINI_IMAGE_MODELS } from "@/lib/gemini-models";
 
 type NoteBullet = { text?: string; sources?: number[] };
 type NoteTerm = { term?: string; definition?: string; sources?: number[] };
@@ -15,45 +14,9 @@ type Body = {
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   notes?: Notes;
+  /** Ignored: Gemini keys are text-only (summarize). Images always use built-in AI. */
   geminiKey?: string;
 };
-
-const FREE_TIER_IMAGE_MSG =
-  "Gemini image generation is not available on the free tier for this API key (quota limit 0). " +
-  "Enable billing on the Google AI Studio / Cloud project for this key, or remove the key and use Built-in AI.";
-
-const RATE_LIMIT_MSG =
-  "Gemini is rate-limiting this key right now. Wait about a minute and try again, or switch to Built-in AI.";
-
-/** Wrap a single finished image as a one-frame SSE stream the client parser understands. */
-const sseFromBase64 = (b64: string) =>
-  new Response(
-    `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: b64 })}\n\ndata: [DONE]\n\n`,
-    {
-      headers: {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-        "X-Accel-Buffering": "no",
-      },
-    },
-  );
-
-const parseGeminiErrorDetail = (raw: string) => {
-  try {
-    return (JSON.parse(raw)?.error?.message as string) || raw;
-  } catch {
-    return raw;
-  }
-};
-
-const isFreeTierBlocked = (status: number, detail: string) =>
-  status === 429 &&
-  (/limit:\s*0/i.test(detail) ||
-    /free_tier/i.test(detail) ||
-    (/quota/i.test(detail) && /free/i.test(detail)));
-
-const isTransientRateLimit = (status: number, detail: string) =>
-  status === 429 && !isFreeTierBlocked(status, detail);
 
 const buildPrompt = ({
   topic,
@@ -169,101 +132,9 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           notes: body.notes,
         });
 
-        const userKey = body.geminiKey?.trim();
-        if (userKey) {
-          let lastError = "";
-          let sawFreeTierBlock = false;
-          let sawTransient429 = false;
-
-          for (const model of GEMINI_IMAGE_MODELS) {
-            let res: Response;
-            try {
-              res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": userKey,
-                  },
-                  body: JSON.stringify({
-                    contents: [
-                      {
-                        role: "user",
-                        parts: [
-                          {
-                            text: `${prompt}\n\nOutput a single A4 portrait (2:3 aspect ratio) image. Return the image only.`,
-                          },
-                        ],
-                      },
-                    ],
-                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-                  }),
-                  signal: request.signal,
-                },
-              );
-            } catch {
-              return new Response("Could not reach Google's API. Check your connection.", {
-                status: 502,
-              });
-            }
-
-            if (!res.ok) {
-              const raw = await res.text().catch(() => "");
-              const detail = parseGeminiErrorDetail(raw).slice(0, 500);
-              lastError = detail;
-
-              if (res.status === 404 || /not found|not supported/i.test(detail)) {
-                continue;
-              }
-
-              if (isFreeTierBlocked(res.status, detail)) {
-                sawFreeTierBlock = true;
-                continue;
-              }
-
-              if (isTransientRateLimit(res.status, detail)) {
-                sawTransient429 = true;
-                continue;
-              }
-
-              return new Response(`Gemini error (${res.status}): ${detail}`, {
-                status: res.status,
-              });
-            }
-
-            const data = (await res.json()) as any;
-            const inline = data?.candidates?.[0]?.content?.parts?.find(
-              (p: any) => p.inlineData?.data,
-            )?.inlineData;
-            if (inline?.data) return sseFromBase64(inline.data as string);
-
-            const blocked =
-              data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
-            lastError = blocked
-              ? `Gemini returned no image (${blocked}). Try rephrasing the topic.`
-              : "Gemini returned no image data.";
-          }
-
-          if (sawFreeTierBlock) {
-            return new Response(`Gemini error (429): ${FREE_TIER_IMAGE_MSG}`, {
-              status: 429,
-              headers: { "Content-Type": "text/plain; charset=utf-8" },
-            });
-          }
-          if (sawTransient429) {
-            return new Response(`Gemini error (429): ${RATE_LIMIT_MSG}`, {
-              status: 429,
-              headers: { "Content-Type": "text/plain; charset=utf-8" },
-            });
-          }
-
-          return new Response(
-            lastError ||
-              "Your Gemini key could not generate an image. Image generation may not be enabled for it.",
-            { status: 502 },
-          );
-        }
+        // Whiteboard images always use the site built-in generator.
+        // User Gemini keys are text-only (document summarize via /api/summarize).
+        // Free-tier Gemini image quota is often 0 and is not used here.
 
         const key = process.env.LOVABLE_API_KEY;
         if (!key) {
@@ -296,8 +167,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           const status = upstream.status;
           if (status === 429) {
             return new Response(
-              text ||
-                "Built-in AI is rate-limited right now. Wait a moment and try again, or use your own Gemini key with billing enabled.",
+              text || "Built-in AI is rate-limited right now. Wait a moment and try again.",
               { status: 429 },
             );
           }
