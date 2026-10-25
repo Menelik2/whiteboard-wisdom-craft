@@ -10,7 +10,10 @@
 
 /** Text models (summarize + key validation). */
 export const GEMINI_TEXT_MODELS = [
-  "gemini-2.5-flash", // stable Flash text
+  "gemini-3.8-flash", // Current stable flagship Flash model
+  "gemini-3.5-flash-lite", // Cost-efficient stable fallback
+  "gemini-3.1-flash-lite", // Broadly available stable fallback
+  "gemini-2.5-flash", // Legacy fallback; access is limited for some new projects
 ] as const;
 
 /**
