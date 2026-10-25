@@ -17,7 +17,7 @@ function normalizeNotes(value: unknown, selectedIndexes: Set<number>, fallbackTo
   const data = value as Record<string, unknown>;
   const sources = (value: unknown) =>
     Array.isArray(value)
-      ? [...new Set(value.filter((n): n is number => Number.isSafeInteger(n) && selectedIndexes.has(n)))].slice(0, 20)
+      ? [...new Set(value.filter((n): n is number => typeof n === "number" && Number.isSafeInteger(n) && selectedIndexes.has(n)))].slice(0, 20)
       : [];
   const keyPoints = Array.isArray(data.keyPoints)
     ? data.keyPoints.slice(0, 30).flatMap((point) => {
@@ -466,7 +466,7 @@ export const Route = createFileRoute("/api/summarize")({
         const normalized = normalizeNotes(
           parsed,
           new Set(segments.map((segment) => segment.index)),
-          filename?.replace(/\\.[^.]+$/, "") || "Study Notes",
+          filename?.replace(/\.[^.]+$/, "") || "Study Notes",
         );
         if (!normalized) return jsonResponse({ error: "The AI returned invalid study notes. Please retry." }, 502);
         return jsonResponse({ ...normalized, sourceLabel: label });
