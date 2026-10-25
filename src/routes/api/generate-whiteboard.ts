@@ -299,7 +299,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
                 }
 
                 return jsonResponse({
-                  error: /limit:\\s*0|free_tier/i.test(detail)
+                  error: /limit:\s*0|free_tier/i.test(detail)
                     ? "This Gemini API project has a free-tier image-generation quota of 0 for this model. This is a Google quota/billing restriction, not an app bug. Enable billing or request quota access in Google AI Studio, or configure LOVABLE_API_KEY on Vercel to enable backup image generation."
                     : "Gemini image generation is rate-limited. Wait for the quota window to reset, enable billing, or configure LOVABLE_API_KEY on Vercel for backup image generation.",
                   code: "GEMINI_IMAGE_QUOTA_EXCEEDED",
