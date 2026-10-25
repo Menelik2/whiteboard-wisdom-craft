@@ -189,7 +189,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           }
 
           // Adapt Gemini's non-streaming image response to the app's existing SSE image parser.
-          const event = `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: imagePart.inlineData.data })}\\n\\n`;
+          const event = `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: imagePart.inlineData.data })}\n\n`;
           return new Response(event, {
             headers: {
               "Content-Type": "text/event-stream; charset=utf-8",
