@@ -120,7 +120,7 @@ async function extractPptx(file: File): Promise<Segment[]> {
     });
   const segments: Segment[] = [];
   let total = 0;
-  for (let i = 0; i < slideFiles.length; i++) {
+  for (let i = 0; i < Math.min(slideFiles.length, 100); i++) {
     const xml = await zip.files[slideFiles[i]].async("string");
     const matches = xml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) ?? [];
     const runs = matches.map((m) => m.replace(/<a:t[^>]*>|<\/a:t>/g, "").trim()).filter(Boolean);
