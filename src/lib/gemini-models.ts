@@ -14,14 +14,16 @@ export const GEMINI_TEXT_MODELS = [
 ] as const;
 
 /**
- * Native image generation models (Nano Banana family).
- * Tried in order; 404 / "not found" skips to the next.
+ * Native image generation models (Nano Banana family), in preferred order.
+ * Prefer the current stable image model, then fall back to older or alternate
+ * models when an account does not have access to a particular model.
  */
 export const GEMINI_IMAGE_MODELS = [
-  "gemini-2.5-flash-image", // Nano Banana (legacy, widely available)
+  "gemini-nano-banana-2.1", // Current stable Nano Banana 2.1
   "gemini-3.1-flash-image", // Nano Banana 2
-  "gemini-3.1-flash-lite-image", // Nano Banana 2 Lite
   "gemini-3-pro-image", // Nano Banana Pro
+  "gemini-3.1-flash-lite-image", // Nano Banana 2 Lite
+  "gemini-2.5-flash-image", // Legacy Nano Banana
 ] as const;
 
 export type GeminiTextModel = (typeof GEMINI_TEXT_MODELS)[number];
