@@ -237,8 +237,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
               lastStatus = upstream.status;
 
               // Model availability varies by Google account and API rollout. Only
-              // retry another model for a missing/unsupported model, not for
-              // invalid credentials, quota exhaustion, or other real failures.
+              // retry another model for a missing/unsupported model.
               if (
                 upstream.status === 404 ||
                 /model.*(not found|not supported|unknown)|not found.*model/i.test(detail)
@@ -246,12 +245,68 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
                 continue;
               }
 
-              const status =
-                upstream.status === 429
-                  ? 429
-                  : upstream.status === 401 || upstream.status === 403
-                    ? upstream.status
-                    : 502;
+              // A model with a free-tier quota of zero cannot be fixed by retrying
+              // another Gemini model. Use the configured server-side image provider
+              // if available; never silently bypass the user's quota with another key.
+              if (upstream.status === 429) {
+                const fallbackKey =
+                  process.env.LOVABLE_API_KEY?.trim() ||
+                  process.env.LOVABLE_AI_API_KEY?.trim() ||
+                  process.env.AI_GATEWAY_API_KEY?.trim();
+
+                if (fallbackKey) {
+                  let fallback: Response;
+                  try {
+                    fallback = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${fallbackKey}`,
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        model: "openai/gpt-image-2",
+                        prompt,
+                        size: "1024x1536",
+                        quality: "high",
+                        n: 1,
+                        stream: true,
+                        partial_images: 2,
+                      }),
+                      signal: request.signal,
+                    });
+                  } catch (error) {
+                    if ((error as Error).name === "AbortError") throw error;
+                    return jsonResponse({
+                      error: "Gemini quota is exhausted and the backup image provider could not be reached. Enable Gemini API billing or check the server image-provider configuration.",
+                    }, 502);
+                  }
+
+                  if (fallback.ok && fallback.body) {
+                    return new Response(fallback.body, {
+                      headers: {
+                        "Content-Type": "text/event-stream; charset=utf-8",
+                        "Cache-Control": "no-cache, no-transform",
+                        "X-Accel-Buffering": "no",
+                        "X-Image-Provider": "fallback",
+                      },
+                    });
+                  }
+
+                  const fallbackDetail = (await fallback.text().catch(() => "")).slice(0, 300);
+                  return jsonResponse({
+                    error: `Gemini quota is exhausted, and the backup image provider failed (HTTP ${fallback.status}). ${fallbackDetail}`.slice(0, 700),
+                  }, fallback.status === 429 ? 429 : 502);
+                }
+
+                return jsonResponse({
+                  error: /limit:\\s*0|free_tier/i.test(detail)
+                    ? "This Gemini API project has a free-tier image-generation quota of 0 for this model. This is a Google quota/billing restriction, not an app bug. Enable billing or request quota access in Google AI Studio, or configure LOVABLE_API_KEY on Vercel to enable backup image generation."
+                    : "Gemini image generation is rate-limited. Wait for the quota window to reset, enable billing, or configure LOVABLE_API_KEY on Vercel for backup image generation.",
+                  code: "GEMINI_IMAGE_QUOTA_EXCEEDED",
+                }, 429);
+              }
+
+              const status = upstream.status === 401 || upstream.status === 403 ? upstream.status : 502;
               return jsonResponse({ error: `Gemini image generation failed: ${lastDetail}` }, status);
             }
 
