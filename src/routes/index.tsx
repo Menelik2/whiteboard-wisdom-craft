@@ -477,7 +477,7 @@ function Index() {
             >
               <input
                 type="file"
-                accept=".pdf,.docx,.pptx,.ppt,.txt,.md,application/pdf"
+                accept=".pdf,.docx,.pptx,.txt,.md,application/pdf"
                 className="hidden"
                 disabled={extracting || summarizing}
                 onChange={(e) => {
