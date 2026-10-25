@@ -258,6 +258,7 @@ function Index() {
           markerColors: colors,
           numConcepts,
           difficulty,
+          ...(geminiKey ? { geminiKey } : {}),
           ...(notesPayload ? { notes: notesPayload } : {}),
         },
         (dataUrl, final) => {
