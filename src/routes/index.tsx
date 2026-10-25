@@ -85,7 +85,10 @@ function Index() {
     const stored = loadGeminiKey();
     setGeminiKey(stored);
     setKeyDraft(stored);
-    return () => abortRef.current?.abort();
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
   }, []);
 
   const applyKey = async () => {
