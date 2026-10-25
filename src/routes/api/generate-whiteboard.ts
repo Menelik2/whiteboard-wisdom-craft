@@ -18,6 +18,37 @@ type Body = {
   geminiKey?: string;
 };
 
+const ALLOWED_MARKER_COLORS = new Set(["black", "blue", "green", "orange", "red", "purple"]);
+
+const jsonResponse = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+
+function sanitizeNotes(input: unknown): Notes | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const notes = input as Notes;
+  const summary = typeof notes.summary === "string" ? notes.summary.trim().slice(0, 5_000) : "";
+  const keyTerms = Array.isArray(notes.keyTerms)
+    ? notes.keyTerms.slice(0, 30).flatMap((item) => {
+        if (!item || typeof item.term !== "string" || typeof item.definition !== "string") return [];
+        const term = item.term.trim().slice(0, 200);
+        const definition = item.definition.trim().slice(0, 2_000);
+        return term && definition ? [{ term, definition }] : [];
+      })
+    : [];
+  const keyPoints = Array.isArray(notes.keyPoints)
+    ? notes.keyPoints.slice(0, 40).flatMap((item) => {
+        if (!item || typeof item.text !== "string") return [];
+        const text = item.text.trim().slice(0, 1_000);
+        return text ? [{ text }] : [];
+      })
+    : [];
+  if (!summary && keyTerms.length === 0 && keyPoints.length === 0) return undefined;
+  return { summary, keyTerms, keyPoints };
+}
+
 const buildPrompt = ({
   topic,
   markerColors,
@@ -106,19 +137,43 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const body = (await request.json()) as Body;
-        const topic = body.topic?.trim();
-        if (!topic) {
-          return new Response(JSON.stringify({ error: "Topic is required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
+        const contentLength = Number(request.headers.get("content-length") ?? 0);
+        if (Number.isFinite(contentLength) && contentLength > 200_000) {
+          return jsonResponse({ error: "Request is too large. Shorten the notes and try again." }, 413);
         }
-        const markerColors =
-          Array.isArray(body.markerColors) && body.markerColors.length
-            ? body.markerColors.slice(0, 6)
-            : ["black", "blue", "green", "orange", "red"];
-        const numConcepts = Math.min(20, Math.max(5, Number(body.numConcepts) || 12));
+
+        let body: Body;
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return jsonResponse({ error: "Invalid JSON request body." }, 400);
+        }
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+          return jsonResponse({ error: "Invalid request body." }, 400);
+        }
+
+        const topic = typeof body.topic === "string" ? body.topic.trim() : "";
+        if (!topic) return jsonResponse({ error: "Topic is required" }, 400);
+        if (topic.length > 500) {
+          return jsonResponse({ error: "Topic must be 500 characters or fewer." }, 400);
+        }
+
+        const requestedColors = Array.isArray(body.markerColors)
+          ? [...new Set(
+              body.markerColors
+                .filter((color): color is string =>
+                  typeof color === "string" && ALLOWED_MARKER_COLORS.has(color.toLowerCase()),
+                )
+                .map((color) => color.toLowerCase()),
+            )].slice(0, 6)
+          : [];
+        const markerColors = requestedColors.length
+          ? requestedColors
+          : ["black", "blue", "green", "orange", "red"];
+        const requestedConcepts = Number(body.numConcepts);
+        const numConcepts = Number.isFinite(requestedConcepts)
+          ? Math.min(20, Math.max(5, Math.round(requestedConcepts)))
+          : 12;
         const difficulty: "Beginner" | "Intermediate" | "Advanced" =
           body.difficulty === "Beginner" || body.difficulty === "Advanced"
             ? body.difficulty
@@ -129,10 +184,13 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           markerColors,
           numConcepts,
           difficulty,
-          notes: body.notes,
+          notes: sanitizeNotes(body.notes),
         });
 
-        const userGeminiKey = body.geminiKey?.trim();
+        const userGeminiKey = typeof body.geminiKey === "string" ? body.geminiKey.trim() : "";
+        if (userGeminiKey.length > 512) {
+          return jsonResponse({ error: "Gemini API key is too long." }, 400);
+        }
 
         // If the user configured Gemini in the app, use Gemini for image generation.
         // Keep the existing gateway as a backward-compatible fallback when no Gemini key is configured.
@@ -214,23 +272,29 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           });
         }
 
-        const upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "openai/gpt-image-2",
-            prompt,
-            size: "1024x1536",
-            quality: "high",
-            n: 1,
-            stream: true,
-            partial_images: 2,
-          }),
-          signal: request.signal,
-        });
+        let upstream: Response;
+        try {
+          upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${key}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "openai/gpt-image-2",
+              prompt,
+              size: "1024x1536",
+              quality: "high",
+              n: 1,
+              stream: true,
+              partial_images: 2,
+            }),
+            signal: request.signal,
+          });
+        } catch (error) {
+          if ((error as Error).name === "AbortError") throw error;
+          return jsonResponse({ error: "Could not reach the built-in image service. Check your connection and retry." }, 502);
+        }
 
         if (!upstream.ok || !upstream.body) {
           const text = await upstream.text().catch(() => "");
