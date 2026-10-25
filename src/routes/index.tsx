@@ -128,7 +128,7 @@ function Index() {
       setKeyStatus("valid");
       setKeyError(null);
       if (data.warning) toast.warning(data.warning);
-      else toast.success("Key verified — Gemini for document summaries only");
+      else toast.success("Key verified — Gemini text and image features enabled (quota permitting)");
     } catch {
       const msg = "Could not reach the validation service. Check your connection and retry.";
       setKeyStatus("invalid");
@@ -197,8 +197,7 @@ function Index() {
           `Summarize failed (${res.status})`;
         throw new Error(String(msg));
       }
-      const data = payload as Notes;
-      setNotes(data);
+      const data = payload as Notes;      setNotes(data);
       if (data.topic && !topic.trim()) setTopic(data.topic);
       toast.success("Notes ready");
     } catch (e) {
@@ -397,7 +396,6 @@ function Index() {
                     })}
                   </div>
                 </div>
-
                 <div className="flex flex-col gap-2">
                   <label
                     htmlFor="num"
@@ -597,19 +595,16 @@ function Index() {
           <details className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
               <span className="text-sm font-semibold">Use your own Gemini API key</span>
-              <span
-                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              <span                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                   geminiKey ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                 }`}
               >
-                {geminiKey ? "Your key (text)" : "Built-in AI"}
+                {geminiKey ? "Gemini enabled" : "Built-in AI"}
               </span>
             </summary>
 
             <p className="mt-3 text-xs text-muted-foreground">
-              Optional. Paste a Google AI Studio key (AIza… or AQ.…) to summarize documents and extract
-              study notes with Gemini (<code className="text-[10px]">gemini-2.5-flash</code>). Whiteboard
-              images always use the site’s built-in generator (no Gemini image quota needed).
+              Optional. Paste a Google AI Studio API key (AIza… or AQ.…) to use Gemini for document summaries and whiteboard image generation. Image generation uses <code className="text-[10px]">gemini-2.5-flash-image</code>; availability and quota depend on your Google AI Studio project. If no Gemini key is saved, the app uses its built-in image generator.
             </p>
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -649,7 +644,7 @@ function Index() {
             )}
             {keyStatus === "valid" && (
               <p className="mt-3 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
-                Key verified — Gemini is used for document summaries only. Whiteboards use built-in AI.
+                Key verified for Gemini text requests. Whiteboard images will also use Gemini when image-generation access and quota are available.
               </p>
             )}
 
