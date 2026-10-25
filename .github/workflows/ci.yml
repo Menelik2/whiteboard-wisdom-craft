@@ -32,7 +32,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
 
       # The repository intentionally has no committed npm or Bun lockfile.
       # Use the same package manager Vercel uses for this repository.
