@@ -34,6 +34,14 @@ describe("whiteboard history", () => {
     expect(loadHistory()).toEqual([]);
   });
 
+  it("ignores malformed saved history entries", () => {
+    window.localStorage.setItem(
+      "whiteboard-history-v1",
+      JSON.stringify([makeItem("valid"), null, { id: "broken" }, { ...makeItem("bad-url"), dataUrl: "javascript:alert(1)" }]),
+    );
+    expect(loadHistory().map((item) => item.id)).toEqual(["valid"]);
+  });
+
   it("saves and reads back an item", () => {
     saveToHistory(makeItem("a"));
     expect(loadHistory().map((i) => i.id)).toEqual(["a"]);
