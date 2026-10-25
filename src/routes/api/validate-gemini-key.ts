@@ -38,9 +38,22 @@ export const Route = createFileRoute("/api/validate-gemini-key")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { geminiKey } = (await request.json()) as Body;
-        const key = geminiKey?.trim();
+        const contentLength = Number(request.headers.get("content-length") ?? 0);
+        if (Number.isFinite(contentLength) && contentLength > 4_096) {
+          return json({ valid: false, error: "Request is too large." }, 413);
+        }
+
+        let body: Body;
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return json({ valid: false, error: "Invalid JSON request body." }, 400);
+        }
+        const key = typeof body?.geminiKey === "string" ? body.geminiKey.trim() : "";
         if (!key) return json({ valid: false, error: "No API key provided." }, 400);
+        if (key.length > 512) {
+          return json({ valid: false, error: "Gemini API key is too long." }, 400);
+        }
 
         let lastRaw = "";
         let lastStatus = 0;
