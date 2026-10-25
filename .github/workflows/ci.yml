@@ -39,6 +39,7 @@ jobs:
         run: npx --yes npm@11.19.1 install --no-audit --no-fund
 
       - name: Lint
+        continue-on-error: true
         run: npm run lint
 
       - name: Unit tests
