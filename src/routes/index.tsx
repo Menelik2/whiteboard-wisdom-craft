@@ -197,7 +197,8 @@ function Index() {
           `Summarize failed (${res.status})`;
         throw new Error(String(msg));
       }
-      const data = payload as Notes;      setNotes(data);
+      const data = payload as Notes;
+      setNotes(data);
       if (data.topic && !topic.trim()) setTopic(data.topic);
       toast.success("Notes ready");
     } catch (e) {
@@ -595,7 +596,8 @@ function Index() {
           <details className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
               <span className="text-sm font-semibold">Use your own Gemini API key</span>
-              <span                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                   geminiKey ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                 }`}
               >
