@@ -14,7 +14,7 @@ type Body = {
   numConcepts?: number;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   notes?: Notes;
-  /** Reserved; whiteboard images use built-in AI only. */
+  /** Optional user-provided Gemini API key; never stored server-side. */
   geminiKey?: string;
 };
 
@@ -132,23 +132,86 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           notes: body.notes,
         });
 
-        // Prefer common env names used by Lovable / local setup.
+        const userGeminiKey = body.geminiKey?.trim();
+
+        // If the user configured Gemini in the app, use Gemini for image generation.
+        // Keep the existing gateway as a backward-compatible fallback when no Gemini key is configured.
+        if (userGeminiKey) {
+          let upstream: Response;
+          try {
+            upstream = await fetch(
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "x-goog-api-key": userGeminiKey,
+                },
+                body: JSON.stringify({
+                  contents: [{ role: "user", parts: [{ text: prompt }] }],
+                  generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+                }),
+                signal: request.signal,
+              },
+            );
+          } catch (error) {
+            if ((error as Error).name === "AbortError") throw error;
+            return new Response(JSON.stringify({ error: "Could not reach the Gemini API. Check your connection and retry." }), {
+              status: 502,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+
+          if (!upstream.ok) {
+            const raw = await upstream.text().catch(() => "");
+            let message = raw;
+            try {
+              const parsed = JSON.parse(raw);
+              message = parsed?.error?.message || raw;
+            } catch { /* keep raw error */ }
+            const status = upstream.status === 429 ? 429 : upstream.status === 401 || upstream.status === 403 ? upstream.status : 502;
+            return new Response(JSON.stringify({ error: `Gemini image generation failed: ${message.slice(0, 500)}` }), {
+              status,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+
+          const result = await upstream.json() as {
+            candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> } }>;
+          };
+          const imagePart = result.candidates?.flatMap((candidate) => candidate.content?.parts ?? [])
+            .find((part) => part.inlineData?.data);
+          if (!imagePart?.inlineData?.data) {
+            return new Response(JSON.stringify({ error: "Gemini returned no image. Try a shorter topic or try again." }), {
+              status: 502,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+
+          // Adapt Gemini's non-streaming image response to the app's existing SSE image parser.
+          const event = `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: imagePart.inlineData.data })}\\n\\n`;
+          return new Response(event, {
+            headers: {
+              "Content-Type": "text/event-stream; charset=utf-8",
+              "Cache-Control": "no-cache, no-transform",
+              "X-Accel-Buffering": "no",
+            },
+          });
+        }
+
+        // Backward-compatible built-in image generation when no Gemini key is configured.
         const key =
           process.env.LOVABLE_API_KEY?.trim() ||
           process.env.LOVABLE_AI_API_KEY?.trim() ||
           process.env.AI_GATEWAY_API_KEY?.trim();
 
         if (!key) {
-          return new Response(
-            JSON.stringify({
-              error:
-                "LOVABLE_API_KEY missing. Add it in Vercel → Project → Settings → Environment Variables (Production), then Redeploy. Whiteboard images use the site built-in AI, not your Gemini key.",
-            }),
-            {
-              status: 503,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
+          return new Response(JSON.stringify({
+            error: "Add and verify your Gemini API key in the app settings to generate images with Gemini. Alternatively, configure LOVABLE_API_KEY on the server.",
+          }), {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          });
         }
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
@@ -173,10 +236,7 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           const text = await upstream.text().catch(() => "");
           const status = upstream.status;
           if (status === 429) {
-            return new Response(
-              text || "Built-in AI is rate-limited right now. Wait a moment and try again.",
-              { status: 429 },
-            );
+            return new Response(text || "Built-in AI is rate-limited right now. Wait a moment and try again.", { status: 429 });
           }
           return new Response(text || "Upstream error", { status: status || 502 });
         }
