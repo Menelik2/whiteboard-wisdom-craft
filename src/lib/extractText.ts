@@ -3,6 +3,7 @@
 // user pick which to include, and the summarizer can cite sources.
 
 const MAX_CHARS = 80_000;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 export type SupportedKind = "pdf" | "docx" | "pptx" | "text";
 
@@ -26,11 +27,22 @@ export function detectKind(file: File): SupportedKind | null {
   const name = file.name.toLowerCase();
   if (name.endsWith(".pdf")) return "pdf";
   if (name.endsWith(".docx")) return "docx";
-  if (name.endsWith(".pptx") || name.endsWith(".ppt")) return "pptx";
+  if (name.endsWith(".pptx")) return "pptx";
   if (name.endsWith(".txt") || name.endsWith(".md")) return "text";
   if (file.type === "application/pdf") return "pdf";
   if (file.type.startsWith("text/")) return "text";
   return null;
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&#(\\d+);/g, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 10)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
 function makeTitle(text: string, fallback: string): string {
