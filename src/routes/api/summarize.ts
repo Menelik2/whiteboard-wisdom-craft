@@ -4,6 +4,52 @@ import { GEMINI_TEXT_MODELS } from "@/lib/gemini-models";
 type Segment = { index: number; label: string; title: string; text: string };
 type Body = { segments?: Segment[]; filename?: string; geminiKey?: string };
 
+const ALLOWED_LABELS = new Set(["Page", "Slide", "Section"]);
+
+const jsonResponse = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+
+function normalizeNotes(value: unknown, selectedIndexes: Set<number>, fallbackTopic: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const data = value as Record<string, unknown>;
+  const sources = (value: unknown) =>
+    Array.isArray(value)
+      ? [...new Set(value.filter((n): n is number => Number.isSafeInteger(n) && selectedIndexes.has(n)))].slice(0, 20)
+      : [];
+  const keyPoints = Array.isArray(data.keyPoints)
+    ? data.keyPoints.slice(0, 30).flatMap((point) => {
+        if (!point || typeof point !== "object") return [];
+        const item = point as Record<string, unknown>;
+        if (typeof item.text !== "string" || !item.text.trim()) return [];
+        return [{ text: item.text.trim().slice(0, 1_500), sources: sources(item.sources) }];
+      })
+    : [];
+  const keyTerms = Array.isArray(data.keyTerms)
+    ? data.keyTerms.slice(0, 30).flatMap((term) => {
+        if (!term || typeof term !== "object") return [];
+        const item = term as Record<string, unknown>;
+        if (typeof item.term !== "string" || typeof item.definition !== "string") return [];
+        if (!item.term.trim() || !item.definition.trim()) return [];
+        return [{
+          term: item.term.trim().slice(0, 200),
+          definition: item.definition.trim().slice(0, 2_000),
+          sources: sources(item.sources),
+        }];
+      })
+    : [];
+  return {
+    topic: typeof data.topic === "string" && data.topic.trim()
+      ? data.topic.trim().slice(0, 200)
+      : fallbackTopic.slice(0, 200),
+    summary: typeof data.summary === "string" ? data.summary.trim().slice(0, 5_000) : "",
+    keyPoints,
+    keyTerms,
+  };
+}
+
 /** System instruction for Gemini text (and built-in path). */
 function buildSystemPrompt(label: string) {
   const unit = label.toLowerCase();
@@ -99,14 +145,49 @@ export const Route = createFileRoute("/api/summarize")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { segments, filename, geminiKey } = (await request.json()) as Body;
-        if (!segments || segments.length === 0) {
-          return new Response(JSON.stringify({ error: "No segments provided" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
+        const contentLength = Number(request.headers.get("content-length") ?? 0);
+        if (Number.isFinite(contentLength) && contentLength > 200_000) {
+          return jsonResponse({ error: "Request is too large. Select less document text and retry." }, 413);
         }
-        const userKey = geminiKey?.trim();
+
+        let body: Body;
+        try {
+          body = (await request.json()) as Body;
+        } catch {
+          return jsonResponse({ error: "Invalid JSON request body." }, 400);
+        }
+        if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.segments)) {
+          return jsonResponse({ error: "No valid document segments provided." }, 400);
+        }
+        if (body.segments.length > 100) {
+          return jsonResponse({ error: "Select no more than 100 document segments at once." }, 400);
+        }
+
+        const segments = body.segments.filter((segment): segment is Segment =>
+          !!segment &&
+          Number.isSafeInteger(segment.index) &&
+          segment.index > 0 &&
+          typeof segment.label === "string" &&
+          ALLOWED_LABELS.has(segment.label) &&
+          typeof segment.title === "string" &&
+          typeof segment.text === "string" &&
+          segment.text.trim().length > 0,
+        ).map((segment) => ({
+          index: segment.index,
+          label: segment.label,
+          title: segment.title.trim().slice(0, 300),
+          text: segment.text.slice(0, 60_000),
+        }));
+        if (segments.length === 0) return jsonResponse({ error: "No readable document text provided." }, 400);
+
+        const label = segments[0].label;
+        const sameLabelSegments = segments.filter((segment) => segment.label === label);
+        if (sameLabelSegments.length !== segments.length) {
+          return jsonResponse({ error: "Document segments must use a consistent source type." }, 400);
+        }
+        const filename = typeof body.filename === "string" ? body.filename.trim().slice(0, 200) : undefined;
+        const userKey = typeof body.geminiKey === "string" ? body.geminiKey.trim() : "";
+        if (userKey.length > 512) return jsonResponse({ error: "Gemini API key is too long." }, 400);
         const key = process.env.LOVABLE_API_KEY;
         if (!userKey && !key) {
           return new Response(JSON.stringify({ error: "No AI key available" }), {
@@ -115,7 +196,6 @@ export const Route = createFileRoute("/api/summarize")({
           });
         }
 
-        const label = segments[0].label;
         let doc = "";
         let total = 0;
         const CAP = 60_000;
@@ -150,40 +230,46 @@ export const Route = createFileRoute("/api/summarize")({
           let lastStatus = 502;
 
           for (const model of GEMINI_TEXT_MODELS) {
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
-                body: JSON.stringify({
-                  systemInstruction: { parts: [{ text: systemPrompt }] },
-                  contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-                  tools: [
-                    {
-                      functionDeclarations: [
-                        {
-                          name: "build_notes",
-                          description:
-                            "Return structured study notes (topic, summary, keyPoints, keyTerms) with source citations for a whiteboard.",
-                          parameters,
-                        },
-                      ],
+            let res: Response;
+            try {
+              res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-goog-api-key": userKey },
+                  body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+                    tools: [
+                      {
+                        functionDeclarations: [
+                          {
+                            name: "build_notes",
+                            description:
+                              "Return structured study notes (topic, summary, keyPoints, keyTerms) with source citations for a whiteboard.",
+                            parameters,
+                          },
+                        ],
+                      },
+                    ],
+                    toolConfig: {
+                      functionCallingConfig: {
+                        mode: "ANY",
+                        allowedFunctionNames: ["build_notes"],
+                      },
                     },
-                  ],
-                  toolConfig: {
-                    functionCallingConfig: {
-                      mode: "ANY",
-                      allowedFunctionNames: ["build_notes"],
+                    generationConfig: {
+                      temperature: 0.3,
+                      maxOutputTokens: 4096,
                     },
-                  },
-                  generationConfig: {
-                    temperature: 0.3,
-                    maxOutputTokens: 4096,
-                  },
-                }),
-                signal: request.signal,
-              },
-            );
+                  }),
+                  signal: request.signal,
+                },
+              );
+            } catch (error) {
+              if ((error as Error).name === "AbortError") throw error;
+              return jsonResponse({ error: "Could not reach Gemini. Check your connection and retry." }, 502);
+            }
 
             if (!res.ok) {
               const t = await res.text().catch(() => "");
@@ -282,29 +368,35 @@ export const Route = createFileRoute("/api/summarize")({
             required: ["topic", "summary", "keyPoints", "keyTerms"],
           };
 
-          const upstream = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Lovable-API-Key": key!,
-              "X-Lovable-AIG-SDK": "fetch",
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-5.4-mini",
-              stream: true,
-              instructions: systemPrompt,
-              input: [{ role: "user", content: [{ type: "input_text", text: userPrompt }] }],
-              text: {
-                format: {
-                  type: "json_schema",
-                  name: "build_notes",
-                  strict: true,
-                  schema: strictSchema,
-                },
+          let upstream: Response;
+          try {
+            upstream = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Lovable-API-Key": key!,
+                "X-Lovable-AIG-SDK": "fetch",
               },
-            }),
-            signal: request.signal,
-          });
+              body: JSON.stringify({
+                model: "openai/gpt-5.4-mini",
+                stream: true,
+                instructions: systemPrompt,
+                input: [{ role: "user", content: [{ type: "input_text", text: userPrompt }] }],
+                text: {
+                  format: {
+                    type: "json_schema",
+                    name: "build_notes",
+                    strict: true,
+                    schema: strictSchema,
+                  },
+                },
+              }),
+              signal: request.signal,
+            });
+          } catch (error) {
+            if ((error as Error).name === "AbortError") throw error;
+            return jsonResponse({ error: "Could not reach the built-in AI service. Check your connection and retry." }, 502);
+          }
 
           if (!upstream.ok || !upstream.body) {
             const t = await upstream.text().catch(() => "");
@@ -343,6 +435,24 @@ export const Route = createFileRoute("/api/summarize")({
             }
           }
 
+          if (buffer.startsWith("data:")) {
+            const payload = buffer.slice(5).trim();
+            if (payload && payload !== "[DONE]") {
+              try {
+                const evt = JSON.parse(payload) as any;
+                if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
+                  text += evt.delta;
+                } else if (evt.type === "response.completed" && evt.response?.output_text) {
+                  text = Array.isArray(evt.response.output_text)
+                    ? evt.response.output_text.join("")
+                    : String(evt.response.output_text);
+                }
+              } catch {
+                /* ignore incomplete final frame */
+              }
+            }
+          }
+
           try {
             parsed = JSON.parse(text);
           } catch {
@@ -353,9 +463,13 @@ export const Route = createFileRoute("/api/summarize")({
           }
         }
 
-        return new Response(JSON.stringify({ ...parsed, sourceLabel: label }), {
-          headers: { "Content-Type": "application/json" },
-        });
+        const normalized = normalizeNotes(
+          parsed,
+          new Set(segments.map((segment) => segment.index)),
+          filename?.replace(/\\.[^.]+$/, "") || "Study Notes",
+        );
+        if (!normalized) return jsonResponse({ error: "The AI returned invalid study notes. Please retry." }, 502);
+        return jsonResponse({ ...normalized, sourceLabel: label });
       },
     },
   },
