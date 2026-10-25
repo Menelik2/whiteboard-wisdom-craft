@@ -29,26 +29,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
+      # The repository intentionally has no committed npm or Bun lockfile.
+      # Use the same package manager Vercel uses for this repository.
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm install --no-audit --no-fund
 
       - name: Lint
-        continue-on-error: true
-        run: bun run lint
+        run: npm run lint
 
       - name: Unit tests
-        run: bun run test
+        run: npm run test
 
       - name: Validate Workers + Vercel server entries compile
-        run: bun run validate:build
+        run: npm run validate:build
 
   deploy:
     name: Deploy to Vercel
