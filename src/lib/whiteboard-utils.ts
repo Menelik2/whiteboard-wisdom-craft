@@ -13,11 +13,29 @@ export type HistoryItem = {
 const KEY = "whiteboard-history-v1";
 const MAX_ITEMS = 12;
 
+function isHistoryItem(value: unknown): value is HistoryItem {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Partial<HistoryItem>;
+  return (
+    typeof item.id === "string" &&
+    typeof item.topic === "string" &&
+    typeof item.difficulty === "string" &&
+    Number.isFinite(item.numConcepts) &&
+    Array.isArray(item.markerColors) &&
+    item.markerColors.every((color) => typeof color === "string") &&
+    typeof item.dataUrl === "string" &&
+    item.dataUrl.startsWith("data:image/") &&
+    Number.isFinite(item.createdAt)
+  );
+}
+
 export const loadHistory = (): HistoryItem[] => {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as HistoryItem[]) : [];
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isHistoryItem).slice(0, MAX_ITEMS) : [];
   } catch {
     return [];
   }
@@ -43,8 +61,12 @@ export const saveToHistory = (item: HistoryItem) => {
 
 export const removeFromHistory = (id: string) => {
   if (typeof window === "undefined") return;
-  const list = loadHistory().filter((i) => i.id !== id);
-  window.localStorage.setItem(KEY, JSON.stringify(list));
+  try {
+    const list = loadHistory().filter((i) => i.id !== id);
+    window.localStorage.setItem(KEY, JSON.stringify(list));
+  } catch {
+    // Storage may be unavailable or full; don't crash the UI.
+  }
 };
 
 const safeName = (t: string) =>
