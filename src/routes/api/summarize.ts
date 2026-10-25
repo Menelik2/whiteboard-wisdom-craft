@@ -188,7 +188,7 @@ export const Route = createFileRoute("/api/summarize")({
         const filename = typeof body.filename === "string" ? body.filename.trim().slice(0, 200) : undefined;
         const userKey = typeof body.geminiKey === "string" ? body.geminiKey.trim() : "";
         if (userKey.length > 512) return jsonResponse({ error: "Gemini API key is too long." }, 400);
-        const key = process.env.LOVABLE_API_KEY;
+        const key = process.env.LOVABLE_API_KEY?.trim();
         if (!userKey && !key) {
           return new Response(JSON.stringify({ error: "No AI key available" }), {
             status: 500,
