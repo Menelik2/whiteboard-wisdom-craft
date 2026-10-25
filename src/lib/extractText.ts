@@ -146,6 +146,10 @@ async function extractTxt(file: File): Promise<Segment[]> {
 }
 
 export async function extractText(file: File): Promise<ExtractResult> {
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error("Please choose a file smaller than 20 MB.");
+  }
+
   const kind = detectKind(file);
   if (!kind) throw new Error("Unsupported file type. Use PDF, DOCX, PPTX, TXT, or Markdown.");
 
