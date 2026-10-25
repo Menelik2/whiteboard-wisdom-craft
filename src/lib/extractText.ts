@@ -147,7 +147,7 @@ async function extractTxt(file: File): Promise<Segment[]> {
 
 export async function extractText(file: File): Promise<ExtractResult> {
   const kind = detectKind(file);
-  if (!kind) throw new Error("Unsupported file type. Use PDF, DOCX, PPTX, or TXT.");
+  if (!kind) throw new Error("Unsupported file type. Use PDF, DOCX, PPTX, TXT, or Markdown.");
 
   let segments: Segment[];
   switch (kind) {
