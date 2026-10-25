@@ -64,7 +64,9 @@ async function extractPdf(file: File): Promise<Segment[]> {
   for (let i = 1; i <= pageCount; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items.map((it: any) => it.str).join(" ").replace(/\s+/g, " ").trim();
+    const remaining = MAX_CHARS - total;
+    if (remaining <= 0) break;
+    const text = content.items.map((it: any) => it.str).join(" ").replace(/\s+/g, " ").trim().slice(0, remaining);
     segments.push({
       index: i,
       label: "Page",
@@ -72,7 +74,7 @@ async function extractPdf(file: File): Promise<Segment[]> {
       text,
     });
     total += text.length;
-    if (total > MAX_CHARS) break;
+    if (total >= MAX_CHARS) break;
   }
   return segments;
 }
@@ -80,7 +82,8 @@ async function extractPdf(file: File): Promise<Segment[]> {
 async function extractDocx(file: File): Promise<Segment[]> {
   const mammoth = (await import("mammoth")).default;
   const buf = await file.arrayBuffer();
-  const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
+  const { value: extracted } = await mammoth.extractRawText({ arrayBuffer: buf });
+  const value = extracted.slice(0, MAX_CHARS);
   // Split on blank lines into rough sections, capped.
   const blocks = value
     .split(/\n{2,}/)
@@ -121,7 +124,9 @@ async function extractPptx(file: File): Promise<Segment[]> {
     const xml = await zip.files[slideFiles[i]].async("string");
     const matches = xml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) ?? [];
     const runs = matches.map((m) => m.replace(/<a:t[^>]*>|<\/a:t>/g, "").trim()).filter(Boolean);
-    const text = runs.join("\n");
+    const remaining = MAX_CHARS - total;
+    if (remaining <= 0) break;
+    const text = decodeXmlEntities(runs.join("\n")).slice(0, remaining);
     const idx = i + 1;
     segments.push({
       index: idx,
@@ -130,7 +135,7 @@ async function extractPptx(file: File): Promise<Segment[]> {
       text,
     });
     total += text.length;
-    if (total > MAX_CHARS) break;
+    if (total >= MAX_CHARS) break;
   }
   return segments;
 }
