@@ -86,8 +86,19 @@ export const Route = createFileRoute("/api/validate-gemini-key")({
           lastRaw = raw;
           lastStatus = res.status;
 
-          if (res.status === 429) return json({ valid: true, warning: messageFor(429, raw) });
-          if (res.status === 404 || /not found|not supported/i.test(raw)) continue;
+          // A temporary Google backend/model outage does not prove the key is invalid.
+          // Try another supported text model before reporting the outage to the user.
+          if (res.status === 429) {
+            return json({ valid: true, warning: messageFor(429, raw) });
+          }
+
+          if (
+            res.status === 404 ||
+            /not found|not supported/i.test(raw) ||
+            res.status >= 500
+          ) {
+            continue;
+          }
 
           return json({ valid: false, error: messageFor(res.status, raw) }, 200);
         }
