@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GEMINI_IMAGE_MODELS } from "@/lib/gemini-models";
 
 type NoteBullet = { text?: string; sources?: number[] };
 type NoteTerm = { term?: string; definition?: string; sources?: number[] };
@@ -195,66 +196,104 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
         // If the user configured Gemini in the app, use Gemini for image generation.
         // Keep the existing gateway as a backward-compatible fallback when no Gemini key is configured.
         if (userGeminiKey) {
-          let upstream: Response;
-          try {
-            upstream = await fetch(
-              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "x-goog-api-key": userGeminiKey,
-                },
-                body: JSON.stringify({
-                  contents: [{ role: "user", parts: [{ text: prompt }] }],
-                  generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-                }),
-                signal: request.signal,
-              },
-            );
-          } catch (error) {
-            if ((error as Error).name === "AbortError") throw error;
-            return new Response(JSON.stringify({ error: "Could not reach the Gemini API. Check your connection and retry." }), {
-              status: 502,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
+          let lastDetail = "No supported Gemini image model returned an image.";
+          let lastStatus = 502;
 
-          if (!upstream.ok) {
-            const raw = await upstream.text().catch(() => "");
-            let message = raw;
+          for (const model of GEMINI_IMAGE_MODELS) {
+            let upstream: Response;
             try {
-              const parsed = JSON.parse(raw);
-              message = parsed?.error?.message || raw;
-            } catch { /* keep raw error */ }
-            const status = upstream.status === 429 ? 429 : upstream.status === 401 || upstream.status === 403 ? upstream.status : 502;
-            return new Response(JSON.stringify({ error: `Gemini image generation failed: ${message.slice(0, 500)}` }), {
-              status,
-              headers: { "Content-Type": "application/json" },
+              upstream = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": userGeminiKey,
+                  },
+                  body: JSON.stringify({
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+                  }),
+                  signal: request.signal,
+                },
+              );
+            } catch (error) {
+              if ((error as Error).name === "AbortError") throw error;
+              return jsonResponse(
+                { error: "Could not reach the Gemini API. Check your connection and retry." },
+                502,
+              );
+            }
+
+            if (!upstream.ok) {
+              const raw = await upstream.text().catch(() => "");
+              let detail = raw;
+              try {
+                detail = JSON.parse(raw)?.error?.message || raw;
+              } catch {
+                // Keep the raw response when the upstream does not return JSON.
+              }
+              lastDetail = detail.slice(0, 500) || `HTTP ${upstream.status}`;
+              lastStatus = upstream.status;
+
+              // Model availability varies by Google account and API rollout. Only
+              // retry another model for a missing/unsupported model, not for
+              // invalid credentials, quota exhaustion, or other real failures.
+              if (
+                upstream.status === 404 ||
+                /model.*(not found|not supported|unknown)|not found.*model/i.test(detail)
+              ) {
+                continue;
+              }
+
+              const status =
+                upstream.status === 429
+                  ? 429
+                  : upstream.status === 401 || upstream.status === 403
+                    ? upstream.status
+                    : 502;
+              return jsonResponse({ error: `Gemini image generation failed: ${lastDetail}` }, status);
+            }
+
+            let result: {
+              candidates?: Array<{
+                content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> };
+              }>;
+            };
+            try {
+              result = await upstream.json();
+            } catch {
+              lastDetail = "Gemini returned an unreadable response.";
+              lastStatus = 502;
+              continue;
+            }
+
+            const imagePart = result.candidates
+              ?.flatMap((candidate) => candidate.content?.parts ?? [])
+              .find((part) => part.inlineData?.data);
+            if (!imagePart?.inlineData?.data) {
+              lastDetail = "Gemini returned no image. Try a shorter topic or try again.";
+              lastStatus = 502;
+              continue;
+            }
+
+            const event = `data: ${JSON.stringify({
+              type: "image_generation.completed",
+              b64_json: imagePart.inlineData.data,
+            })}\n\n`;
+            return new Response(event, {
+              headers: {
+                "Content-Type": "text/event-stream; charset=utf-8",
+                "Cache-Control": "no-cache, no-transform",
+                "X-Accel-Buffering": "no",
+              },
             });
           }
 
-          const result = await upstream.json() as {
-            candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> } }>;
-          };
-          const imagePart = result.candidates?.flatMap((candidate) => candidate.content?.parts ?? [])
-            .find((part) => part.inlineData?.data);
-          if (!imagePart?.inlineData?.data) {
-            return new Response(JSON.stringify({ error: "Gemini returned no image. Try a shorter topic or try again." }), {
-              status: 502,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-
-          // Adapt Gemini's non-streaming image response to the app's existing SSE image parser.
-          const event = `data: ${JSON.stringify({ type: "image_generation.completed", b64_json: imagePart.inlineData.data })}\n\n`;
-          return new Response(event, {
-            headers: {
-              "Content-Type": "text/event-stream; charset=utf-8",
-              "Cache-Control": "no-cache, no-transform",
-              "X-Accel-Buffering": "no",
-            },
-          });
+          return jsonResponse(
+            { error: `Gemini image generation failed: ${lastDetail}` },
+            lastStatus === 429 || lastStatus === 401 || lastStatus === 403 ? lastStatus : 502,
+          );
         }
 
         // Backward-compatible built-in image generation when no Gemini key is configured.
