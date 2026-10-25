@@ -199,7 +199,8 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           let lastDetail = "No supported Gemini image model returned an image.";
           let lastStatus = 502;
 
-          for (const model of GEMINI_IMAGE_MODELS) {
+          for (let modelIndex = 0; modelIndex < GEMINI_IMAGE_MODELS.length; modelIndex++) {
+            const model = GEMINI_IMAGE_MODELS[modelIndex];
             let upstream: Response;
             try {
               upstream = await fetch(
@@ -245,10 +246,12 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
                 continue;
               }
 
-              // A model with a free-tier quota of zero cannot be fixed by retrying
-              // another Gemini model. Use the configured server-side image provider
-              // if available; never silently bypass the user's quota with another key.
+              // Quotas and model access can differ by model. Try the remaining
+              // supported image models before deciding the user's whole project is blocked.
+              // Only use the server-side provider as an explicit configured fallback.
               if (upstream.status === 429) {
+                if (modelIndex < GEMINI_IMAGE_MODELS.length - 1) continue;
+
                 const fallbackKey =
                   process.env.LOVABLE_API_KEY?.trim() ||
                   process.env.LOVABLE_AI_API_KEY?.trim() ||
@@ -346,7 +349,12 @@ export const Route = createFileRoute("/api/generate-whiteboard")({
           }
 
           return jsonResponse(
-            { error: `Gemini image generation failed: ${lastDetail}` },
+            {
+              error: lastStatus === 429
+                ? "All supported Gemini image models are rate-limited or have no available image quota for this API key. Check image-model access and quota in Google AI Studio, enable billing if required, or configure LOVABLE_API_KEY in Vercel to use the server-side backup image provider."
+                : `Gemini image generation failed: ${lastDetail}`,
+              code: lastStatus === 429 ? "GEMINI_IMAGE_QUOTA_EXCEEDED" : undefined,
+            },
             lastStatus === 429 || lastStatus === 401 || lastStatus === 403 ? lastStatus : 502,
           );
         }
