@@ -621,11 +621,16 @@ function Index() {
             </summary>
 
             <p className="mt-3 text-xs text-muted-foreground">
-              Optional. Paste a Google AI Studio API key (AIza… or AQ.…) to use Gemini for document summaries and whiteboard image generation. Image generation uses <code className="text-[10px]">gemini-2.5-flash-image</code>; availability and quota depend on your Google AI Studio project. If no Gemini key is saved, the app uses its built-in image generator.
+              Use your own Google AI Studio API key for document summaries and whiteboard image generation. The key is saved in this browser's local storage and sent to this app's API routes when you use Gemini; it is not saved to the app's database. Only enter a key you trust this website to handle. Remove it here to clear it from this browser.
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Verification checks Gemini text access only. Image generation also requires your Google project to have access to a supported image model and enough quota or billing; a valid key does not guarantee image-generation access.
             </p>
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
+                id="gemini-api-key"
+                aria-label="Your Gemini API key"
                 type={showKey ? "text" : "password"}
                 value={keyDraft}
                 onChange={(e) => setKeyDraft(e.target.value)}
