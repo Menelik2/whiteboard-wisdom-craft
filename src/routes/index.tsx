@@ -85,6 +85,7 @@ function Index() {
     const stored = loadGeminiKey();
     setGeminiKey(stored);
     setKeyDraft(stored);
+    return () => abortRef.current?.abort();
   }, []);
 
   const applyKey = async () => {
@@ -262,6 +263,7 @@ function Index() {
           ...(notesPayload ? { notes: notesPayload } : {}),
         },
         (dataUrl, final) => {
+          if (abortRef.current !== ctrl) return;
           setSrc(dataUrl);
           if (final) {
             setIsFinal(true);
@@ -283,7 +285,10 @@ function Index() {
         toast.error((e as Error).message || "Generation failed");
       }
     } finally {
-      setLoading(false);
+      if (abortRef.current === ctrl) {
+        abortRef.current = null;
+        setLoading(false);
+      }
     }
   };
 
@@ -291,7 +296,14 @@ function Index() {
     setTopic(item.topic);
     setColors(item.markerColors);
     setNumConcepts(item.numConcepts);
-    setDifficulty(item.difficulty as Difficulty);
+    const savedDifficulty = item.difficulty.toLowerCase();
+    setDifficulty(
+      savedDifficulty === "beginner"
+        ? "Beginner"
+        : savedDifficulty === "advanced"
+          ? "Advanced"
+          : "Intermediate",
+    );
     setSrc(item.dataUrl);
     setIsFinal(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
